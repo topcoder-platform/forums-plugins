@@ -1,0 +1,23 @@
+{
+  "key": "Topcoder",
+  "name": "Topcoder Plugin",
+  "description": "This plugin adds fields(photoUrl, maxRating) from Topcoder member profile.",
+  "version": "1.0.0",
+  "documentationUrl": "http://vanilla.topcoder-dev.com",
+  "type": "addon",
+  "icon": "topcoder-logo.jpeg",
+  "mobileFriendly": true,
+  "hasLocale": false,
+  "settingsUrl": "/settings/topcoder",
+  "settingsPermission": "Garden.Settings.Manage",
+  "authors": [
+    {
+      "name": "Topcoder",
+      "email": "support@topcoder.com",
+      "homepage": "https://topcoder.com"
+    }
+  ],
+  "require": {
+    "vanilla": ">=3.0"
+  }
+}
