@@ -128,6 +128,21 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 }
 
+if(!function_exists('topcoderRatingCssClass')) {
+    /**
+     * Take an user name to get rating css style .
+     *
+     * @return string Returns rating css style
+     */
+    function topcoderRatingCssClass($name) {
+        $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
+        if ($topcoderRating != null) {
+            $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
+            return $coderStyles;
+        }
+        return '';
+    }
+}
 
 if (!function_exists('userBuilder')) {
     /**
@@ -352,7 +367,7 @@ if (!function_exists('writeActivity')) {
         $excerpt = Gdn_Format::to($activity->Story, $format);
 
         if ($activity->NotifyUserID > 0 || !in_array($activityType, ['WallComment', 'WallPost', 'AboutUpdate'])) {
-            $title = '<div class="Title" role="heading" aria-level="3">'.Gdn_Format::to(val('Headline', $activity), 'html').'</div>';
+            $title = '<div class="Title" role="heading" aria-level="3">'.val('Headline', $activity).'</div>';
         } else if ($activityType == 'WallPost') {
             $regardingUser = userBuilder($activity, 'Regarding');
             $photoAnchor = userPhoto($regardingUser);
