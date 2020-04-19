@@ -33,14 +33,28 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     /**
      * Use a Topcoder Photo on the user' profile.
+     * Add/Remove Links in/from a sided menu.
      *
      * @param ProfileController $sender
      * @param array $args
      */
     public function profileController_afterAddSideMenu_handler($sender, $args) {
         $sender->User->Photo = userPhotoDefaultUrl($sender->User, ['Size' => 200]);
+        $sideMenu = $sender->EventArguments['SideMenu'];
+        $sideMenu->addLink('Options', sprite('SpTopcoder').' '.t('View/Edit My Topcoder Profile'), self::getTopcoderProfileUrl($sender->User->Name));
+        $sideMenu->removeLink('Options', sprite('SpPicture').' '.t('Change My Picture'));
+        $sideMenu->removeLink('Options', sprite('SpQuote').' '.t('Quote Settings'));
     }
 
+    /**
+     * Get a Topcoder Member Profile Url
+     * @param $name vanilla user name
+     * @return string  profile url
+     */
+    public static function getTopcoderProfileUrl($name) {
+        $topcoderMemberProfileUrl = c('Plugins.Topcoder.MemberProfileURL');
+        return $topcoderMemberProfileUrl . '/' . $name;
+   }
 
     /**
      * Get a Topcoder Member Profile
@@ -49,7 +63,11 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public static function getTopcoderProfile($name) {
         $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').c('Plugins.Topcoder.MemberApiURI');
-        $memberData = file_get_contents($topcoderMembersApiUrl.'/'.$name);
+        $memberData = @file_get_contents($topcoderMembersApiUrl.'/'.$name);
+        if($memberData === false) {
+            // Handle errors (e.g. 404 and others)
+            return null;
+        }
         $memberResponse = json_decode($memberData);
         //Use a photo of Topcoder member if the member with the given user name exists and photoUrl is not null
         if($memberResponse->result->status === 200 && $memberResponse->result->content !== null) {
@@ -79,7 +97,11 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public static function getTopcoderRating($name) {
         $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').c('Plugins.Topcoder.MemberApiURI');
-        $memberStatsData = file_get_contents($topcoderMembersApiUrl.'/'.$name.'/stats');
+        $memberStatsData = @file_get_contents($topcoderMembersApiUrl.'/'.$name.'/stats');
+        if($memberStatsData === false) {
+            // Handle errors (e.g. 404 and others)
+            return null;
+        }
         $memberStatsResponse = json_decode($memberStatsData);
         if($memberStatsResponse->result->status === 200 && $memberStatsResponse->result->content[0]->maxRating) {
             return $memberStatsResponse->result->content[0]->maxRating->rating;
@@ -248,8 +270,8 @@ if (!function_exists('userPhoto')) {
         if($topcoderProfile !== null) {
             $attributes['target'] = '_blank';
 
-            $topcoderMemberProfileUrl = c('Plugins.Topcoder.MemberProfileURL');
-            $userLink = $topcoderMemberProfileUrl . '/' . $name;
+
+            $userLink = TopcoderPlugin::getTopcoderProfileUrl($name);
             $topcoderPhotoUrl = $topcoderProfile->photoURL;
             if ($topcoderPhotoUrl !== null) {
                 $photoUrl = $topcoderPhotoUrl;

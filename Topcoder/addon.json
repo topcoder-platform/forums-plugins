@@ -5,6 +5,7 @@
   "version": "1.0.0",
   "documentationUrl": "http://vanilla.topcoder-dev.com",
   "type": "addon",
+  "priority": "99",
   "icon": "topcoder-logo.jpeg",
   "mobileFriendly": true,
   "hasLocale": false,
