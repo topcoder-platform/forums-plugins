@@ -31,8 +31,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.BaseApiURL' => ['Control' => 'TextBox', 'Default' => 'https://api.topcoder-dev.com', 'Description' => 'TopCoder Base API URL'],
             'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/members', 'Description' => 'Topcoder Member API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => 'https://www.topcoder.com/members', 'Description' => 'Topcoder Member Profile URL'],
-            //'Plugins.Topcoder.GDPRReports' => ['Control' => 'checkbox', 'Default' => false, 'Description'=>'', 'LabelCode' => 'GDPR Reports'],
-
         ]);
 
         $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
@@ -46,14 +44,13 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function userController_UserCell_handler($sender, $args) {
-       // if(c('Plugins.Topcoder.GDPRReports')) {
         ?>
         <td>
             <?php
                 echo !$args['User']->UserID? '' :'<a class="btn btn-icon-border" href="' . url('/user/export/' . $args['User']->UserID) . '">Export</a>';
              ?>
         </td>
-        <?php //}
+        <?php
       }
 
     /**
@@ -70,7 +67,8 @@ class TopcoderPlugin extends Gdn_Plugin {
             throw new Exception('Requires GET', 405);
         }
 
-        $user = $sender->userModel->getID($userID, DATASET_TYPE_ARRAY);
+        $userModel = new UserModel();
+        $user = $userModel->getID($userID, DATASET_TYPE_ARRAY);
         if (!$user) {
             throw notFoundException('User');
         }
@@ -95,6 +93,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $reportData->conversations = $conversations;
         $reportData->messages = $messages;
         $reportData->drafts = $drafts;
+        $reportData->ips = $userModel->getIPs($userID);
 
         $result = json_encode($reportData, JSON_PRETTY_PRINT);
         header('Content-Disposition: attachment; filename="user-'.$userID.'.json"');
