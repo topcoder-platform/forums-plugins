@@ -2,6 +2,12 @@
 /**
  * Class TopcoderPlugin
  */
+
+use Garden\Schema\Schema;
+use Garden\Web\Data;
+use Garden\Web\Exception\NotFoundException;
+use Vanilla\ApiUtils;
+
 class TopcoderPlugin extends Gdn_Plugin {
 
      /**
@@ -51,7 +57,7 @@ class TopcoderPlugin extends Gdn_Plugin {
       }
 
     /**
-     * Generate  a GDPR report (/user/gdpr/{:userID})
+     * Generate  an export report (/user/export/{:userID})
      *
      * @param $sender
      * @param $args
@@ -80,6 +86,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $comments = TopcoderPlugin::getPagedData(CommentsApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID));
         $messages = TopcoderPlugin::getPagedData(MessagesApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID));
         $conversations = TopcoderPlugin::getPagedData(ConversationsApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID, 'participantUserID' => $userID));
+        $drafts = TopcoderPlugin::getPagedData(DraftsApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID));
 
         $reportData =new StdClass();
         $reportData->user = $user;
@@ -87,6 +94,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $reportData->comments = $comments;
         $reportData->conversations = $conversations;
         $reportData->messages = $messages;
+        $reportData->drafts = $drafts;
 
         $result = json_encode($reportData, JSON_PRETTY_PRINT);
         header('Content-Disposition: attachment; filename="user-'.$userID.'.json"');
@@ -96,6 +104,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         echo $result;
 
     }
+
     private static function getData($class, $query) {
         if($class === DiscussionsApiController::class) {
             $apiControler = Gdn::getContainer()->get(DiscussionsApiController::class);
@@ -112,7 +121,9 @@ class TopcoderPlugin extends Gdn_Plugin {
         } else if($class === ConversationsApiController::class) {
             $apiControler = Gdn::getContainer()->get(ConversationsApiController::class);
             return $apiControler->index($query);
-        } else {
+        }  else if($class === DraftsApiController::class) {
+            return self::getDrafts(DraftsApiController::class,$query);
+        }  else {
             throw new Exception('API Controller not supported');
         }
     }
@@ -159,6 +170,64 @@ class TopcoderPlugin extends Gdn_Plugin {
             }
         }
         return $records;
+    }
+
+    /**
+     * List drafts created by the user.
+     *
+     * @param array $query The query string.
+     * @return Data
+     */
+    private static function getDrafts($class, array $query) {
+        $apiControler = Gdn::getContainer()->get($class);
+        $in = $apiControler->schema([
+            'insertUserID:i?' => [
+                'description' => 'Author',
+                'default' => 1,
+                'minimum' => 1
+            ],
+            'page:i?' => [
+                'description' => 'Page number.',
+                'default' => 1,
+                'minimum' => 1
+            ],
+            'limit:i?' => [
+                'description' => 'Desired number of items per page.',
+                'default' => 30,
+                'minimum' => 1,
+                'maximum' => 100
+            ]
+        ], 'in')->setDescription('List drafts created by the user.');
+        $out = $apiControler->schema([':a' => Schema::parse([
+            'draftID:i' => 'The unique ID of the draft.',
+            'recordType:s' => [
+                'description' => 'The type of record associated with this draft.',
+                'enum' => ['comment', 'discussion']
+            ],
+            'parentRecordID:i|n' => 'The unique ID of the intended parent to this record.',
+            'attributes:o' => 'A free-form object containing all custom data for this draft.',
+            'insertUserID:i' => 'The unique ID of the user who created this draft.',
+            'dateInserted:dt' => 'When the draft was created.',
+            'updateUserID:i|n' => 'The unique ID of the user who updated this draft.',
+            'dateUpdated:dt|n' => 'When the draft was updated.'
+        ])], 'out');
+        $query = $in->validate($query);
+        $where = ['InsertUserID' => $query['insertUserID']];
+        list($offset, $limit) = offsetLimit("p{$query['page']}", $query['limit']);
+        $draftModel = new DraftModel();
+        $rows = $draftModel->getWhere($where, '', 'asc', $limit, $offset)->resultArray();
+        foreach ($rows as &$row) {
+            $row = $apiControler->normalizeOutput($row);
+        }
+        $result = $out->validate($rows);
+        $paging = ApiUtils::numberedPagerInfo(
+            $draftModel->getCount($where),
+            '/api/v2/drafts',
+            $query,
+            $in
+        );
+
+        return new Data($result, ['paging' => $paging]);
     }
 
     /**
