@@ -2,6 +2,12 @@
 /**
  * Class TopcoderPlugin
  */
+
+use Garden\Schema\Schema;
+use Garden\Web\Data;
+use Garden\Web\Exception\NotFoundException;
+use Vanilla\ApiUtils;
+
 class TopcoderPlugin extends Gdn_Plugin {
 
      /**
@@ -28,7 +34,199 @@ class TopcoderPlugin extends Gdn_Plugin {
         ]);
 
         $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
+        saveToConfig('Conversations.Moderation.Allow', true);
         $cf->renderAll();
+    }
+
+    /**
+     * Add the button to generate GDPR report
+     * @param $sender
+     * @param $args
+     */
+    public function userController_UserCell_handler($sender, $args) {
+        ?>
+        <td>
+            <?php
+                echo !$args['User']->UserID? '' :'<a class="btn btn-icon-border" href="' . url('/user/export/' . $args['User']->UserID) . '">Export</a>';
+             ?>
+        </td>
+        <?php
+      }
+
+    /**
+     * Generate  an export report (/user/export/{:userID})
+     *
+     * @param $sender
+     * @param $args
+     * @throws Gdn_UserException
+     */
+    public function userController_export_create($sender, $args) {
+        $userID = $args[0];
+
+        if (Gdn::request()->isAuthenticatedPostBack()) {
+            throw new Exception('Requires GET', 405);
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->getID($userID, DATASET_TYPE_ARRAY);
+        if (!$user) {
+            throw notFoundException('User');
+        }
+
+        //Max limit for all API controllers;
+        $MAX_LIMIT = 100;
+
+        //$dateInserted = '';
+        //$dateUpdated = '';
+
+        $user = self::getData(UsersApiController::class, array('id' => $userID));
+        $discussions = TopcoderPlugin::getPagedData(DiscussionsApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID));
+        $comments = TopcoderPlugin::getPagedData(CommentsApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID));
+        $messages = TopcoderPlugin::getPagedData(MessagesApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID));
+        $conversations = TopcoderPlugin::getPagedData(ConversationsApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID, 'participantUserID' => $userID));
+        $drafts = TopcoderPlugin::getPagedData(DraftsApiController::class, array('page' => 1, 'limit' =>  $MAX_LIMIT, 'insertUserID'=> $userID));
+
+        $reportData =new StdClass();
+        $reportData->user = $user;
+        $reportData->discussions = $discussions;
+        $reportData->comments = $comments;
+        $reportData->conversations = $conversations;
+        $reportData->messages = $messages;
+        $reportData->drafts = $drafts;
+        $reportData->ips = $userModel->getIPs($userID);
+
+        $result = json_encode($reportData, JSON_PRETTY_PRINT);
+        header('Content-Disposition: attachment; filename="user-'.$userID.'.json"');
+        header('Content-Type: application/json');
+        header('Content-Length: ' . strlen($result));
+        header('Connection: close');
+        echo $result;
+
+    }
+
+    private static function getData($class, $query) {
+        if($class === DiscussionsApiController::class) {
+            $apiControler = Gdn::getContainer()->get(DiscussionsApiController::class);
+            return $apiControler->index($query);
+        } else if($class === UsersApiController::class) {
+            $apiController = Gdn::getContainer()->get(UsersApiController::class);
+            return $apiController->get($query['id'], array());
+        } else if($class === CommentsApiController::class) {
+            $apiControler = Gdn::getContainer()->get(CommentsApiController::class);
+            return $apiControler->index($query);
+        } else if($class === MessagesApiController::class) {
+            $apiControler = Gdn::getContainer()->get(MessagesApiController::class);
+            return $apiControler->index($query);
+        } else if($class === ConversationsApiController::class) {
+            $apiControler = Gdn::getContainer()->get(ConversationsApiController::class);
+            return $apiControler->index($query);
+        }  else if($class === DraftsApiController::class) {
+            return self::getDrafts(DraftsApiController::class,$query);
+        }  else {
+            throw new Exception('API Controller not supported');
+        }
+    }
+
+    /**
+     * Get data from REST API without auth tokens
+     * There are two types of paging meta data
+     *  1.  { "page": 1,
+     *        "pageCount": 7,
+     *        "urlFormat": "\/api\/v2\/discussions?page=%s&limit=1",
+     *        "totalCount": 7
+     *  }
+     * 2. {
+     *     "page" : 1,
+     *     "more" : 1,
+     *     "urlFormat": /api/v2/discussions?page=%s&amp;limit=1&amp;insertUserID=2,
+     *  }
+     * @param $class
+     * @param $query
+     * @return array
+     */
+    private static function getPagedData($class, $query) {
+        $result = self::getData($class, $query);
+        $records = $result->getData();
+        $meta = $result->getMeta('paging');
+        if(array_key_exists('totalCount', $meta)) {
+            $records = $result->getData();
+            // Load from the next page
+            for ($i = 2; $i < $meta['totalCount']; $i++) {
+                $query['page'] = $i;
+                $nextPageData = self::getData($class, $query);
+                $records = array_merge($records, $nextPageData->getData());
+            }
+        } else {
+            $currentPage = 2;
+            $hasNextPage = $meta['more'];
+            while($hasNextPage === true) {
+                $query['page'] = $currentPage;
+                $nextPageData = self::getData($class, $query);
+                $meta = $nextPageData->getMeta('paging');
+                $hasNextPage =  $meta['more'];
+                $records = array_merge($records, $nextPageData->getData());
+                $currentPage++;
+            }
+        }
+        return $records;
+    }
+
+    /**
+     * List drafts created by the user.
+     *
+     * @param array $query The query string.
+     * @return Data
+     */
+    private static function getDrafts($class, array $query) {
+        $apiControler = Gdn::getContainer()->get($class);
+        $in = $apiControler->schema([
+            'insertUserID:i?' => [
+                'description' => 'Author',
+                'default' => 1,
+                'minimum' => 1
+            ],
+            'page:i?' => [
+                'description' => 'Page number.',
+                'default' => 1,
+                'minimum' => 1
+            ],
+            'limit:i?' => [
+                'description' => 'Desired number of items per page.',
+                'default' => 30,
+                'minimum' => 1,
+                'maximum' => 100
+            ]
+        ], 'in')->setDescription('List drafts created by the user.');
+        $out = $apiControler->schema([':a' => Schema::parse([
+            'draftID:i' => 'The unique ID of the draft.',
+            'recordType:s' => [
+                'description' => 'The type of record associated with this draft.',
+                'enum' => ['comment', 'discussion']
+            ],
+            'parentRecordID:i|n' => 'The unique ID of the intended parent to this record.',
+            'attributes:o' => 'A free-form object containing all custom data for this draft.',
+            'insertUserID:i' => 'The unique ID of the user who created this draft.',
+            'dateInserted:dt' => 'When the draft was created.',
+            'updateUserID:i|n' => 'The unique ID of the user who updated this draft.',
+            'dateUpdated:dt|n' => 'When the draft was updated.'
+        ])], 'out');
+        $query = $in->validate($query);
+        $where = ['InsertUserID' => $query['insertUserID']];
+        list($offset, $limit) = offsetLimit("p{$query['page']}", $query['limit']);
+        $draftModel = new DraftModel();
+        $rows = $draftModel->getWhere($where, '', 'asc', $limit, $offset)->resultArray();
+        foreach ($rows as &$row) {
+            $row = $apiControler->normalizeOutput($row);
+        }
+        $result = $out->validate($rows);
+        $paging = ApiUtils::numberedPagerInfo(
+            $draftModel->getCount($where),
+            '/api/v2/drafts',
+            $query,
+            $in
+        );
+
+        return new Data($result, ['paging' => $paging]);
     }
 
     /**
