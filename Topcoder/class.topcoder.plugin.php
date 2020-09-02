@@ -361,7 +361,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         if ($topcoderId) {
             $token = TopcoderPlugin::getM2MToken();
             if ($token) {
-                $topcoderRolesApiUrl = c('Plugins.Topcoder.BaseApiURL') . c('Plugins.Topcoder.RolesApiURI');
+                $topcoderRolesApiUrl = c('Plugins.Topcoder.BaseApiURL') . c('Plugins.Topcoder.RoleApiURI');
                 $options = array('http' => array(
                     'method' => 'GET',
                     'header' => 'Authorization: Bearer ' .$token
