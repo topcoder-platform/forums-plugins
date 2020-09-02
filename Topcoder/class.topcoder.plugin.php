@@ -509,6 +509,22 @@ if (!function_exists('userPhotoUrl')) {
     }
 }
 
+if (!function_exists('topcoderUserUrl')) {
+    /**
+     * Return the URL for a topcoder user.
+     *
+     * @param array|object $user The user to get the url for.
+     * @param string $px The prefix to apply before fieldnames.
+     * @return string The url suitable to be passed into the url() function.
+     * @since 2.1
+     */
+    function topcoderUserUrl($user, $px = '') {
+        $userName = val($px.'Name', $user);
+        return TopcoderPlugin::getTopcoderProfileUrl(rawurlencode($userName));
+    }
+}
+
+
 if (!function_exists('userAnchor')) {
     /**
      * Take a user object, and writes out an anchor of the user's name to the user's profile.
@@ -543,7 +559,8 @@ if (!function_exists('userAnchor')) {
             $attributes['title'] = $options['title'];
         }
 
-        $userUrl = userUrl($user, $px);
+        // Go to Topcoder user profile link instead of Vanilla profile link
+        $userUrl = topcoderUserUrl($user, $px);
         $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
         if($topcoderRating != null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
