@@ -32,7 +32,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/members', 'Description' => 'Topcoder Member API URI'],
             'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/roles', 'Description' => 'Topcoder Role API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => 'https://www.topcoder.com/members', 'Description' => 'Topcoder Member Profile URL'],
-
         ]);
 
         $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
@@ -302,18 +301,17 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public static function getM2MToken()
     {
-        $TOPCODER_AUTH0_CLIENT_ID = getenv('TOPCODER_AUTH0_CLIENT_ID');
-        $TOPCODER_AUTH0_CLIENT_SECRET = getenv('TOPCODER_AUTH0_CLIENT_SECRET');
-        $TOPCODER_AUTH0_AUDIENCE = getenv('TOPCODER_AUTH0_AUDIENCE');
-        $TOPCODER_AUTH0_URL = getenv('TOPCODER_AUTH0_URL');
-        $TOPCODER_AUTH0_PROXY_SERVER_URL = getenv('TOPCODER_AUTH0_PROXY_SERVER_URL');
+        $TOPCODER_AUTH0_CLIENT_ID = getenv('AUTH0_CLIENT_ID');
+        $TOPCODER_AUTH0_CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
+        $TOPCODER_AUTH0_AUDIENCE = getenv('AUTH0_AUDIENCE');
+        $TOPCODER_AUTH0_URL = getenv('AUTH0_URL');
+        $TOPCODER_AUTH0_PROXY_SERVER_URL = getenv('AUTH0_PROXY_SERVER_URL');
 
-        $issetM2MParams = (isset($TOPCODER_AUTH0_CLIENT_ID) &&
+        if(!(isset($TOPCODER_AUTH0_CLIENT_ID) &&
             isset($TOPCODER_AUTH0_CLIENT_SECRET) &&
             isset($TOPCODER_AUTH0_AUDIENCE) &&
             isset($TOPCODER_AUTH0_URL) &&
-            isset($TOPCODER_AUTH0_PROXY_SERVER_URL));
-        if(!$issetM2MParams) {
+            isset($TOPCODER_AUTH0_PROXY_SERVER_URL))) {
             logMessage(__FILE__,__LINE__,'TopcoderPlugin','getM2MToken()',"M2M Token parameters weren't set");
             throw new InvalidArgumentException("M2M Token parameters weren't set");
         }
