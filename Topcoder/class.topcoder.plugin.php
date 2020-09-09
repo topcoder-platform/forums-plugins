@@ -30,6 +30,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $cf->initialize([
             'Plugins.Topcoder.BaseApiURL' => ['Control' => 'TextBox', 'Default' => 'https://api.topcoder-dev.com', 'Description' => 'TopCoder Base API URL'],
             'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/members', 'Description' => 'Topcoder Member API URI'],
+            'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/roles', 'Description' => 'Topcoder Role API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => 'https://www.topcoder.com/members', 'Description' => 'Topcoder Member Profile URL'],
         ]);
 
@@ -275,6 +276,131 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Get a Topcoder Member Id by Topcoder handle
+     * @param $name vanilla user name
+     * @return null|int
+     */
+    public static function getTopcoderId($name) {
+        $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').c('Plugins.Topcoder.MemberApiURI');
+        $memberData = @file_get_contents($topcoderMembersApiUrl.'/'.$name);
+        if($memberData === false) {
+            // Handle errors (e.g. 404 and others)
+            return null;
+        }
+        $memberResponse = json_decode($memberData);
+        //Use a photo of Topcoder member if the member with the given user name exists and photoUrl is not null
+        if($memberResponse->result->status === 200 && $memberResponse->result->content !== null) {
+            return  $memberResponse->result->content->userId;
+        }
+        return null;
+    }
+
+    /**
+     * Generate machine to machine token from Auth0
+     * @return null|String m2m token
+     */
+    public static function getM2MToken()
+    {
+        $TOPCODER_AUTH0_CLIENT_ID = getenv('AUTH0_CLIENT_ID');
+        $TOPCODER_AUTH0_CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
+        $TOPCODER_AUTH0_AUDIENCE = getenv('AUTH0_AUDIENCE');
+        $TOPCODER_AUTH0_URL = getenv('AUTH0_URL');
+        $TOPCODER_AUTH0_PROXY_SERVER_URL = getenv('AUTH0_PROXY_SERVER_URL');
+
+        if(!(isset($TOPCODER_AUTH0_CLIENT_ID) &&
+            isset($TOPCODER_AUTH0_CLIENT_SECRET) &&
+            isset($TOPCODER_AUTH0_AUDIENCE) &&
+            isset($TOPCODER_AUTH0_URL) &&
+            isset($TOPCODER_AUTH0_PROXY_SERVER_URL))) {
+            logMessage(__FILE__,__LINE__,'TopcoderPlugin','getM2MToken()',"M2M Token parameters weren't set");
+            throw new InvalidArgumentException("M2M Token parameters weren't set");
+        }
+
+        $data = array('grant_type' => 'client_credentials',
+            'client_id' => $TOPCODER_AUTH0_CLIENT_ID,
+            'client_secret' => $TOPCODER_AUTH0_CLIENT_SECRET,
+            'audience' => $TOPCODER_AUTH0_AUDIENCE,
+            'auth0_url' => $TOPCODER_AUTH0_URL);
+
+        $m2mOptions = array('http' => array(
+            'method' => 'POST',
+            'header' => 'Content-type: application/json',
+            'content' => json_encode($data)
+        ));
+
+        $m2mContext = stream_context_create($m2mOptions);
+        try {
+            $m2mTokenData = file_get_contents($TOPCODER_AUTH0_PROXY_SERVER_URL, false, $m2mContext);
+            $m2mTokenResponse = json_decode($m2mTokenData);
+            return $m2mTokenResponse->access_token;
+        } catch (Exception $e) {
+            logMessage(__FILE__,__LINE__,'TopcoderPlugin','getM2MToken',"M2M token wasn't generated:" .$e.message);
+            return null;
+        }
+
+    }
+
+    /**
+     * Get a Topcoder Roles
+     *
+     * @param $name Topcoder Handle
+     * @return null|string  array of role objects. Example of role object:
+     *  {
+     *       "id":"3",
+     *       "modifiedBy":null,
+     *      "modifiedAt":null,
+     *       "createdBy":null,
+     *       "createdAt":null,
+     *       "roleName":"Connect Support"
+     *   }
+     */
+    public static function getTopcoderRoles($name) {
+        $topcoderId =  TopcoderPlugin::getTopcoderId($name);
+        if ($topcoderId) {
+            $token = TopcoderPlugin::getM2MToken();
+            if ($token) {
+                $topcoderRolesApiUrl = c('Plugins.Topcoder.BaseApiURL') . c('Plugins.Topcoder.RoleApiURI');
+                $options = array('http' => array(
+                    'method' => 'GET',
+                    'header' => 'Authorization: Bearer ' .$token
+                ));
+                $context = stream_context_create($options);
+                $rolesData = file_get_contents($topcoderRolesApiUrl . '?filter=subjectID%3D' . $topcoderId, false, $context);
+                if ($rolesData === false) {
+                    // Handle errors (e.g. 404 and others)
+                    logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getTopcoderRoles', "Couldn't get Topcoder roles".json_encode($http_response_header));
+                    return null;
+                }
+
+                $rolesResponse = json_decode($rolesData);
+                if ($rolesResponse->result->status === 200 && $rolesResponse->result->content !== null) {
+                     return $rolesResponse->result->content;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if User has a Topcoder admin role
+     *
+     * @param $name  username
+     * @return boolean true if User has Topcoder admin role
+     */
+    public static function hasTopcoderAdminRole($name) {
+        $roles =  TopcoderPlugin::getTopcoderRoles($name);
+        if($roles) {
+            $adminRoleNames = array("admin", "administrator");
+            foreach ($roles as $role) {
+                if (in_array(strtolower($role->roleName), $adminRoleNames)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Get a photo url from Topcoder Member Profile
      * @param $name vanilla user name
      * @return null|string  photo url
@@ -509,6 +635,22 @@ if (!function_exists('userPhotoUrl')) {
     }
 }
 
+if (!function_exists('topcoderUserUrl')) {
+    /**
+     * Return the URL for a topcoder user.
+     *
+     * @param array|object $user The user to get the url for.
+     * @param string $px The prefix to apply before fieldnames.
+     * @return string The url suitable to be passed into the url() function.
+     * @since 2.1
+     */
+    function topcoderUserUrl($user, $px = '') {
+        $userName = val($px.'Name', $user);
+        return TopcoderPlugin::getTopcoderProfileUrl(rawurlencode($userName));
+    }
+}
+
+
 if (!function_exists('userAnchor')) {
     /**
      * Take a user object, and writes out an anchor of the user's name to the user's profile.
@@ -543,13 +685,19 @@ if (!function_exists('userAnchor')) {
             $attributes['title'] = $options['title'];
         }
 
-        $userUrl = userUrl($user, $px);
+        // Go to Topcoder user profile link instead of Vanilla profile link
+        $userUrl = topcoderUserUrl($user, $px);
+
         $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
         if($topcoderRating != null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
             $attributes['class'] = $attributes['class'].' '.$coderStyles ;
         }
 
+        $isTopcoderAdmin = TopcoderPlugin::hasTopcoderAdminRole($name);
+        if($isTopcoderAdmin) {
+            $attributes['class'] = $attributes['class'].' '. 'topcoderAdmin' ;
+        }
         return '<a href="'.htmlspecialchars(url($userUrl)).'"'.attribute($attributes).'>'.$text.'</a>';
     }
 }
