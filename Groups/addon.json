@@ -1,0 +1,23 @@
+{
+  "key": "Groups",
+  "name": "Groups",
+  "description": "This plugin for managing groups.",
+  "version": "1.0.0",
+  "documentationUrl": "http://vanilla.topcoder-dev.com",
+  "type": "addon",
+  "priority": "100",
+  "icon": "topcoder-logo.jpeg",
+  "mobileFriendly": true,
+  "hasLocale": false,
+  "settingsPermission": "Garden.Settings.Manage",
+  "authors": [
+    {
+      "name": "Topcoder",
+      "email": "support@topcoder.com",
+      "homepage": "https://topcoder.com"
+    }
+  ],
+  "require": {
+    "vanilla": ">=3.2"
+  }
+}
