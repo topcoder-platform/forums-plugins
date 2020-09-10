@@ -32,15 +32,6 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     private $jwksFetcher;
 
-    public function __construct()  {
-
-    }
-    /**
-     * Run once on enable.
-     */
-    public function setup() {
-
-    }
     /**
      * Extra styling on the discussion view.
      *
