@@ -46,7 +46,23 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public function gdn_auth_startAuthenticator_handler() {
        $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
-       $accessToken = $this->getBearerToken();
+       $cookiesToken =  $_COOKIE['auth0Jwt'];
+       $headersToken = $this->getBearerToken();
+       $accessToken = $headersToken ? $headersToken : $cookiesToken;
+
+       if($cookiesToken) {
+           $this->log('Token from Cookies', ['value' => $cookiesToken]);
+       }
+       if($headersToken) {
+           $this->log('Token from Headers', ['value' => '' . $headersToken]);
+       }
+
+       if($accessToken) {
+           $this->log('Using Token', ['value' => $accessToken]);
+       } else {
+           $this->log('Token wasn\'t found', []);
+       }
+
        $useTopcoderAuthToken = c('Plugins.Topcoder.UseTopcoderAuthToken');
        if($useTopcoderAuthToken && $accessToken) {
             // If a token found to end the existing session
@@ -62,7 +78,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             $AUTH0_AUDIENCE = getenv('AUTH0_CLIENT_ID');
             $CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
 
-            $this->log('AccessToken found', ['accessToken'=> ''.$accessToken]);
             $decodedToken = (new Parser())->parse((string) $accessToken);
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
             $signatureVerifier = null;
@@ -114,6 +129,8 @@ class TopcoderPlugin extends Gdn_Plugin {
                             Gdn::session()->start($userID, false);
                         }
                     }
+                } else {
+                    $this->log('Vanilla User was not found', []);
                 }
             }
         }
