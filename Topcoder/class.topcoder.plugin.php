@@ -74,7 +74,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                     return;
                 }
             }
-            $AUTH0_DOMAIN = 'topcoder-dev.auth0.com';
+            $AUTH0_DOMAIN = 'https://topcoder-dev.auth0.com/';
             $AUTH0_AUDIENCE = getenv('AUTH0_CLIENT_ID');
             $CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
 
@@ -82,12 +82,11 @@ class TopcoderPlugin extends Gdn_Plugin {
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
             $signatureVerifier = null;
             $issuer = $decodedToken->getClaim('iss');
+            if ($issuer != $AUTH0_DOMAIN){
+               $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
+               return;
+            }
             if($decodedToken->getHeader('alg') === 'RS256' ) {
-                 if ($issuer != $AUTH0_DOMAIN){
-                    $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
-                    return;
-                }
-
                 $jwksUri  = $issuer . '.well-known/jwks.json';
                 if($this->jwksFetcher == null) {
                      $this->jwksFetcher = new JWKFetcher();
