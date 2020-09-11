@@ -3,14 +3,36 @@
  * Class TopcoderPlugin
  */
 
+if (!class_exists('Auth0\SDK\Auth0')){
+    require __DIR__ . '/vendor/autoload.php';
+}
+
 use Garden\Schema\Schema;
 use Garden\Web\Data;
 use Garden\Web\Exception\NotFoundException;
 use Vanilla\ApiUtils;
 
+
+use Auth0\SDK\Exception\InvalidTokenException;
+use Auth0\SDK\Helpers\JWKFetcher;
+use Auth0\SDK\Helpers\Tokens\AsymmetricVerifier;
+use Auth0\SDK\Helpers\Tokens\TokenVerifier;
+use Auth0\SDK\Helpers\Tokens\SymmetricVerifier;
+use Auth0\SDK\Helpers\Tokens\IdTokenVerifier;
+use Auth0\SDK\JWTVerifier;
+use Kodus\Cache\FileCache;
+use Auth0\SDK\Auth0;
+use Lcobucci\JWT\Parser;
+use Lcobucci\JWT\Token;
+
+
+
+
 class TopcoderPlugin extends Gdn_Plugin {
 
-     /**
+    private $jwksFetcher;
+
+    /**
      * Extra styling on the discussion view.
      *
      * @param \Vanilla\Web\Asset\LegacyAssetModel $sender
@@ -20,6 +42,134 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Check if we have a valid token associated with the request.
+     */
+    public function gdn_auth_startAuthenticator_handler() {
+       $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
+       $accessToken = $this->getBearerToken();
+       $useTopcoderAuthToken = c('Plugins.Topcoder.UseTopcoderAuthToken');
+       if($useTopcoderAuthToken && $accessToken) {
+            // If a token found to end the existing session
+            if(Gdn::session()->isValid()) {
+                try {
+                    Gdn::session()->end(Gdn::authenticator());
+                } catch  (\Exception $e) {
+                    $this->log('Ending session', ['Error' => $e.getMessage]);
+                    return;
+                }
+            }
+            $AUTH0_DOMAIN = getenv('$AUTH0_DOMAIN');
+            $AUTH0_AUDIENCE = getenv('AUTH0_CLIENT_ID');
+            $CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
+
+            $this->log('AccessToken found', ['accessToken'=> ''.$accessToken]);
+            $decodedToken = (new Parser())->parse((string) $accessToken);
+            $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
+            $signatureVerifier = null;
+            $issuer = $decodedToken->getClaim('iss');
+            if($decodedToken->getHeader('alg') === 'RS256' ) {
+                 if ($issuer != $AUTH0_DOMAIN){
+                    $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
+                    return;
+                }
+
+                $jwksUri  = $issuer . '.well-known/jwks.json';
+                if($this->jwksFetcher == null) {
+                     $this->jwksFetcher = new JWKFetcher();
+                 }
+                $jwks = $this->jwksFetcher->getKeys($jwksUri);
+                $signatureVerifier= new AsymmetricVerifier($jwks);
+            } else if ($decodedToken->getHeader('alg') === 'HS256' ) {
+                $signatureVerifier = new SymmetricVerifier($CLIENT_SECRET);
+            } else {
+                return;
+            }
+
+            $tokenVerifier = new IdTokenVerifier(
+                $issuer,
+                $AUTH0_AUDIENCE,
+                $signatureVerifier
+            );
+
+            try {
+                $tokenVerifier->verify($accessToken);
+                $this->log('Verification of the token was successful', ['result' ,true]);
+            } catch (\Exception $e) {
+                $this->log('Verification of the token was failed', ['result' => $e.getMessage]);
+                return;
+            }
+
+            $topcoderUserName = $decodedToken->getClaim('nickname');
+            if($topcoderUserName) {
+                $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
+
+                $userModel = Gdn::userModel();
+                $user = $userModel->getByUsername($topcoderUserName);
+                if($user) {
+                    $userID = val('UserID', $user);
+                    $this->log('Found Vanilla User:', ['Vanilla UserID' => $userID]);
+                    if($userID) {
+                        // Start the 'session'
+                        if (!Gdn::session()->isValid()) {
+                            Gdn::session()->start($userID, false);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public function log($message, $data) {
+        if (c('Vanilla.SSO.Debug')) {
+            Logger::event(
+                'sso_logging',
+                Logger::INFO,
+                $message,
+                $data
+            );
+        }
+    }
+
+    /**
+     * Get Authorization headers
+     * @return string|null
+     */
+    function getAuthorizationHeader() {
+        $headers = null;
+
+        if (isset($_SERVER['Authorization'])) {
+            $headers = trim($_SERVER["Authorization"]);
+        }
+        else if (isset($_SERVER['HTTP_AUTHORIZATION'])) { //Nginx or fast CGI
+            $headers = trim($_SERVER["HTTP_AUTHORIZATION"]);
+        } elseif (function_exists('apache_request_headers')) {
+            $requestHeaders = apache_request_headers();
+            // Server-side fix for bug in old Android versions (a nice side-effect of this fix means we don't care about capitalization for Authorization)
+            $requestHeaders = array_combine(array_map('ucwords', array_keys($requestHeaders)), array_values($requestHeaders));
+            //print_r($requestHeaders);
+            if (isset($requestHeaders['Authorization'])) {
+                $headers = trim($requestHeaders['Authorization']);
+            }
+        }
+        return $headers;
+    }
+
+    /**
+     * Get Bearer Token from the heders
+     * @return mixed|null
+     */
+    function getBearerToken() {
+        $headers = $this->getAuthorizationHeader();
+        // HEADER: Get the access token from the header
+        if (!empty($headers)) {
+            if (preg_match('/Bearer\s(\S+)/', $headers, $matches)) {
+                return $matches[1];
+            }
+        }
+        return null;
+    }
+
+      /**
      * The settings page for the topcoder plugin.
      *
      * @param Gdn_Controller $sender
@@ -32,6 +182,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/members', 'Description' => 'Topcoder Member API URI'],
             'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/roles', 'Description' => 'Topcoder Role API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => 'https://www.topcoder.com/members', 'Description' => 'Topcoder Member Profile URL'],
+            'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
         ]);
 
         $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
