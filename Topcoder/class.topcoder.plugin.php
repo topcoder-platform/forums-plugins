@@ -58,7 +58,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                     return;
                 }
             }
-            $AUTH0_DOMAIN = getenv('AUTH0_DOMAIN');
+            $AUTH0_DOMAIN = getenv('AUTH0_PROXY_SERVER_URL');
             $AUTH0_AUDIENCE = getenv('AUTH0_CLIENT_ID');
             $CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
 
