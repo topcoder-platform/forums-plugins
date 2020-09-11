@@ -481,7 +481,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
         $m2mContext = stream_context_create($m2mOptions);
         try {
-            $m2mTokenData = file_get_contents('https://topcoder-dev.auth0.com/oauth/token', false, $m2mContext);
+            $m2mTokenData = file_get_contents($TOPCODER_AUTH0_PROXY_SERVER_URL, false, $m2mContext);
             $m2mTokenResponse = json_decode($m2mTokenData);
             return $m2mTokenResponse->access_token;
         } catch (Exception $e) {
