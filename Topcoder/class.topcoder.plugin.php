@@ -74,8 +74,8 @@ class TopcoderPlugin extends Gdn_Plugin {
                     return;
                 }
             }
-            $AUTH0_DOMAIN = 'https://topcoder-dev.auth0.com/';
-            $AUTH0_AUDIENCE = getenv('AUTH0_CLIENT_ID');
+            $AUTH0_DOMAIN = getenv('AUTH0_DOMAIN');
+            $AUTH0_AUDIENCE = getenv('AUTH0_AUDIENCE');
             $CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
 
             $decodedToken = (new Parser())->parse((string) $accessToken);
