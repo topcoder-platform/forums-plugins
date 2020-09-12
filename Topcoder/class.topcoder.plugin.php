@@ -82,12 +82,11 @@ class TopcoderPlugin extends Gdn_Plugin {
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
             $signatureVerifier = null;
             $issuer = $decodedToken->getClaim('iss');
+            if ($issuer != $AUTH0_DOMAIN){
+               $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
+               return;
+            }
             if($decodedToken->getHeader('alg') === 'RS256' ) {
-                 if ($issuer != $AUTH0_DOMAIN){
-                    $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
-                    return;
-                }
-
                 $jwksUri  = $issuer . '.well-known/jwks.json';
                 if($this->jwksFetcher == null) {
                      $this->jwksFetcher = new JWKFetcher();
