@@ -46,7 +46,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public function gdn_auth_startAuthenticator_handler() {
        $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
-       $cookiesToken =  $_COOKIE['auth0Jwt'];
+       $cookiesToken =  $_COOKIE['tcjwt'];
        $headersToken = $this->getBearerToken();
        $accessToken = $headersToken ? $headersToken : $cookiesToken;
 
