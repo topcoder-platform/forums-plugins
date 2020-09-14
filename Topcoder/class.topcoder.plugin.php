@@ -74,9 +74,10 @@ class TopcoderPlugin extends Gdn_Plugin {
                     return;
                 }
             }
-            $AUTH0_DOMAIN = 'https://topcoder-dev.auth0.com/';
-            $AUTH0_AUDIENCE = 'JFDo7HMkf0q2CkVFHojy3zHWafziprhT';
-            $CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
+
+            $AUTH0_DOMAIN = c('Plugins.Topcoder.SSO.Auth0Domain');
+            $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.Auth0Audience');
+            $CLIENT_SECRET = c('Plugins.Topcoder.SSO.Auth0ClientSecret');
 
             $decodedToken = (new Parser())->parse((string) $accessToken);
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
@@ -468,11 +469,11 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public static function getM2MToken()
     {
-        $TOPCODER_AUTH0_CLIENT_ID = getenv('AUTH0_CLIENT_ID');
-        $TOPCODER_AUTH0_CLIENT_SECRET = getenv('AUTH0_CLIENT_SECRET');
-        $TOPCODER_AUTH0_AUDIENCE = getenv('AUTH0_AUDIENCE');
-        $TOPCODER_AUTH0_URL = getenv('AUTH0_URL');
-        $TOPCODER_AUTH0_PROXY_SERVER_URL = getenv('AUTH0_PROXY_SERVER_URL');
+        $TOPCODER_AUTH0_CLIENT_ID = c('Plugins.Topcoder.M2M.Auth0ClientId');
+        $TOPCODER_AUTH0_CLIENT_SECRET = c('Plugins.Topcoder.M2M.Auth0ClientSecret');
+        $TOPCODER_AUTH0_AUDIENCE = c('Plugins.Topcoder.M2M.Auth0Audience');
+        $TOPCODER_AUTH0_URL =  c('Plugins.Topcoder.M2M.Auth0Url');
+        $TOPCODER_AUTH0_PROXY_SERVER_URL =  c('Plugins.Topcoder.M2M.Auth0ProxyServerUrl');
 
         if(!(isset($TOPCODER_AUTH0_CLIENT_ID) &&
             isset($TOPCODER_AUTH0_CLIENT_SECRET) &&
