@@ -111,7 +111,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $this->log('Verification of the token was successful', ['result' ,true]);
             } catch (\Exception $e) {
                 $this->log('Verification of the token was failed', ['result' => $e.getMessage]);
-                return;
+                //return;
             }
 
             $topcoderUserName = $decodedToken->getClaim('nickname');
