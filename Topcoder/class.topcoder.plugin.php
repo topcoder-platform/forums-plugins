@@ -114,7 +114,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 //return;
             }
 
-            $topcoderUserName = $decodedToken->getClaim('nickname');
+            $topcoderUserName = $decodedToken->getClaim('handle');
             if($topcoderUserName) {
                 $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
 
