@@ -46,7 +46,12 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public function gdn_auth_startAuthenticator_handler() {
        $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
-       $cookiesToken =  $_COOKIE['v3jwt'];
+
+       $cookieName = c('Plugins.Topcoder.SSO.CookieName');
+       $this->log('Cookie Name', ['value' => $cookieName]);
+
+       $cookiesToken = isset($_COOKIE[$cookieName])? $_COOKIE[$cookieName]: null;
+
        $headersToken = $this->getBearerToken();
        $accessToken = $headersToken ? $headersToken : $cookiesToken;
 
@@ -79,10 +84,17 @@ class TopcoderPlugin extends Gdn_Plugin {
             $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.Auth0Audience');
             $CLIENT_SECRET = c('Plugins.Topcoder.SSO.Auth0ClientSecret');
 
-            $decodedToken = (new Parser())->parse((string) $accessToken);
+           $decodedToken = null;
+            try {
+                $decodedToken = (new Parser())->parse((string)$accessToken);
+            } catch(\Exception $e) {
+                $this->log('Coudl\'not decode a token', ['Error' => $e.getMessage]);
+                return;
+            }
+
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
             $signatureVerifier = null;
-            $issuer = $decodedToken->getClaim('iss');
+            $issuer = $decodedToken->hasClaim('iss')? $decodedToken->getClaim('iss'): null;
             if ($issuer != $AUTH0_DOMAIN){
                $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
                return;
@@ -110,11 +122,19 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $tokenVerifier->verify($accessToken);
                 $this->log('Verification of the token was successful', ['result' ,true]);
             } catch (\Exception $e) {
-                $this->log('Verification of the token was failed', ['result' => $e.getMessage]);
-                //return;
+                $this->log('Verification of the token was failed', ['Error' => $e.getMessage]);
+                return;
             }
 
-            $topcoderUserName = $decodedToken->getClaim('handle');
+            $usernameClaim = c('Plugins.Topcoder.SSO.UsernameClaim');
+            $this->log('Username Claim', ['value' => $usernameClaim]);
+
+            if(!$decodedToken->hasClaim($usernameClaim)) {
+                $this->log('Couldn\'t get the requested claim', ['Claim' => $usernameClaim]);
+                return;
+            }
+
+            $topcoderUserName = $decodedToken->getClaim($usernameClaim);
             if($topcoderUserName) {
                 $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
 
@@ -193,17 +213,32 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
     public function settingsController_topcoder_create($sender) {
         $sender->permission('Garden.Settings.Manage');
+        $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
+
         $cf = new ConfigurationModule($sender);
+
+        // Form submission handling
+        if(Gdn::request()->isAuthenticatedPostBack()) {
+            $cf->form()->validateRule('Plugins.Topcoder.BaseApiURL', 'ValidateRequired', t('You must provide Base API URL.'));
+            $cf->form()->validateRule('Plugins.Topcoder.MemberApiURI', 'ValidateRequired', t('You must provide MemberAPI URI.'));
+            $cf->form()->validateRule('Plugins.Topcoder.RoleApiURI', 'ValidateRequired', t('You must provide Role API URI.'));
+            $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
+            if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim.'));
+            }
+        }
+
         $cf->initialize([
             'Plugins.Topcoder.BaseApiURL' => ['Control' => 'TextBox', 'Default' => 'https://api.topcoder-dev.com', 'Description' => 'TopCoder Base API URL'],
             'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/members', 'Description' => 'Topcoder Member API URI'],
             'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/roles', 'Description' => 'Topcoder Role API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => 'https://www.topcoder.com/members', 'Description' => 'Topcoder Member Profile URL'],
             'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
+            'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => 'v3jwt', 'Description' => 'Topcoder Cookie Name'],
+            'Plugins.Topcoder.SSO.UsernameClaim' => ['Control' => 'TextBox', 'Default' => 'handle', 'Description' => 'Topcoder Username Claim'],
         ]);
 
-        $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
-        saveToConfig('Conversations.Moderation.Allow', true);
         $cf->renderAll();
     }
 
