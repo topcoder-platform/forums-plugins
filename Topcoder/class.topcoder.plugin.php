@@ -56,6 +56,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
             if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.SignInURL', 'ValidateRequired', t('You must provide SignIn URL.'));
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateRequired', t('You must provide Refresh Token URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim.'));
             }
@@ -76,6 +77,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member Profile URL'],
             'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
             'Plugins.Topcoder.SSO.SignInURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
+            'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim'],
         ]);
@@ -218,8 +220,27 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $tokenVerifier->verify($accessToken);
                 $this->log('Verification of the token was successful', ['result' ,true]);
             } catch (\Exception $e) {
-                $this->log('Verification of the token was failed', ['Error' => $e.getMessage]);
-                return;
+                if(strpos($e->getMessage(), "Expiration Time") === 0) {
+                   $this->log('The token was expired', []);
+                   $refreshToken = $this->getRefreshToken($accessToken);
+                   if($refreshToken) {
+                       setcookie('refresh_token', $refreshToken);
+                   } else {
+                       $this->log('Couldn\'t  get a refresh token. Ending the current session...', []);
+                       if(Gdn::session()->isValid()) {
+                           try {
+                               Gdn::session()->end(Gdn::authenticator());
+                           } catch  (\Exception $e) {
+                               $this->log('Ending session', ['Error' => $e.getMessage]);
+                               return;
+                           }
+                       }
+                       return;
+                   }
+                } else {
+                    $this->log('Verification of the token was failed', ['Error' => $e . getMessage]);
+                    return;
+                }
             }
 
             $usernameClaim = c('Plugins.Topcoder.SSO.UsernameClaim');
@@ -302,6 +323,30 @@ class TopcoderPlugin extends Gdn_Plugin {
         return null;
     }
 
+    /**
+     * Refresh a token from an identity service
+     * @return |null
+     */
+    public function getRefreshToken($token)  {
+        $TOPCODER_AUTH0_AUTH_URL = c('Plugins.Topcoder.SSO.Auth0Domain').c('Plugins.Topcoder.SSO.AuthorizationURI');
+        $options = array('http' => array(
+            'method' => 'GET',
+            'header' => 'Authorization: Bearer '.$token
+        ));
+
+        $context = stream_context_create($options);
+        try {
+            $data = file_get_contents($TOPCODER_AUTH0_AUTH_URL, false, $context);
+            if($data !== false) {
+                $response = json_decode($data);
+                return $response->result->content->refreshToken;
+            }
+        } catch (Exception $e) {
+            $this->log('Couldn\'t refresh a token', ['Error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
 
     /**
      * Extra styling on the discussion view.
@@ -325,6 +370,30 @@ class TopcoderPlugin extends Gdn_Plugin {
             ?>
         </td>
         <?php
+    }
+    /** **/
+    /**
+     * Add scripts. Add script to hide iPhone browser bar on pageload.
+     */
+    public function base_render_before($sender) {
+        if (is_object($sender->Head)) {
+            $sender->Head->addString($this->getJS());
+        }
+    }
+
+    /**
+     * Silently Token Refresh Logic for JWT RS256
+     * @return string
+     */
+    private function getJS() {
+        $url= c('Plugins.Topcoder.SSO.RefreshTokenURL');
+        $jsString = '<script>function prepareFrame() {'.
+            'var ifrm = document.createElement("iframe");'.
+            'ifrm.setAttribute("src", "'.$url.'");'.
+            'ifrm.style.width = "0px"; ifrm.style.height = "0px";'.
+            'document.body.appendChild(ifrm);}'.
+            'window.onload = prepareFrame;</script>';
+        return $jsString;
     }
 
     /** ------------------- Export Data Related Methods --------------------- */
