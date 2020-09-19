@@ -26,50 +26,148 @@ use Lcobucci\JWT\Parser;
 use Lcobucci\JWT\Token;
 
 
-
-
 class TopcoderPlugin extends Gdn_Plugin {
 
     private $jwksFetcher;
+    private $providerKey;
+    private $provider;
+
+    public function __construct() {
+        $this->providerKey = 'topcoder';
+        $this->provider = $this->provider();
+    }
 
     /**
-     * Extra styling on the discussion view.
+     * The settings page for the topcoder plugin.
      *
-     * @param \Vanilla\Web\Asset\LegacyAssetModel $sender
+     * @param Gdn_Controller $sender
      */
-    public function assetModel_styleCss_handler($sender) {
-        $sender->addCssFile('topcoder.css', 'plugins/Topcoder');
+    public function settingsController_topcoder_create($sender) {
+        $sender->permission('Garden.Settings.Manage');
+        $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
+
+        $provider = $this->provider();
+        $cf = new ConfigurationModule($sender);
+        // Form submission handling
+        if(Gdn::request()->isAuthenticatedPostBack()) {
+            $cf->form()->validateRule('Plugins.Topcoder.BaseApiURL', 'ValidateRequired', t('You must provide Base API URL.'));
+            $cf->form()->validateRule('Plugins.Topcoder.MemberApiURI', 'ValidateRequired', t('You must provide MemberAPI URI.'));
+            $cf->form()->validateRule('Plugins.Topcoder.RoleApiURI', 'ValidateRequired', t('You must provide Role API URI.'));
+            $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
+            if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.SignInURL', 'ValidateRequired', t('You must provide SignIn URL.'));
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateRequired', t('You must provide Refresh Token URL.'));
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim.'));
+            }
+
+            if($cf->form()->errorCount() == 0) {
+                $model = new Gdn_AuthenticationProviderModel();
+                $provider['SignInUrl'] = $cf->form()->getFormValue('Plugins.Topcoder.SSO.SignInURL');
+                if ($model->save($provider) === false) {
+                    $cf->form()->addError('Couldn\'t save Authentication Provider');
+                }
+            }
+        }
+
+        $cf->initialize([
+            'Plugins.Topcoder.BaseApiURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'TopCoder Base API URL'],
+            'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member API URI'],
+            'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Role API URI'],
+            'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member Profile URL'],
+            'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
+            'Plugins.Topcoder.SSO.SignInURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
+            'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
+            'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
+            'Plugins.Topcoder.SSO.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim'],
+        ]);
+
+        $data = $cf->form()->formData();
+        $data['Plugins.Topcoder.SSO.SignInURL'] =$provider['SignInUrl'];
+        $cf->form()->setData($data);
+        $cf->renderAll();
+    }
+
+
+    /** ------------------- Authentication Provider Related Methods --------------------- */
+
+    /**
+     * Check authentication provider table to see if this is the default method for logging in.
+     *
+     * @return bool Return the value of the IsDefault row of GDN_UserAuthenticationProvider .
+     */
+    public function isDefault() {
+        $provider = $this->provider();
+        return val('IsDefault', $provider);
+    }
+
+    /**
+     * Check if there is enough data to connect to an authentication provider.
+     *
+     * @return bool True if there is url and others
+     */
+    public function isConfigured() {
+        $provider = $this->provider();
+        $signInURL = val('SignInUrl', $provider);
+        $cookieName = c('Plugins.Topcoder.SSO.CookieName', null);
+        $claim = c('Plugins.Topcoder.SSO.UsernameClaim', null);
+        $isConfigured = isset($signInURL) &&
+            isset($cookieName) &&
+            isset($claim);
+        return $isConfigured;
+    }
+
+    /**
+     *  Return all the information saved in provider table.
+     *
+     * @return array Stored provider data.
+     */
+    public function provider() {
+        if (!$this->provider) {
+            $this->provider = Gdn_AuthenticationProviderModel::getProviderByKey($this->providerKey);
+        }
+
+        return $this->provider;
+    }
+
+    /**
+     *  Get provider key.
+     *
+     * @return string Provider key.
+     */
+    public function getProviderKey() {
+        return $this->providerKey;
     }
 
     /**
      * Check if we have a valid token associated with the request.
      */
     public function gdn_auth_startAuthenticator_handler() {
-       $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
+        $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
 
-       $cookieName = c('Plugins.Topcoder.SSO.CookieName');
-       $this->log('Cookie Name', ['value' => $cookieName]);
+        $cookieName = c('Plugins.Topcoder.SSO.CookieName');
+        $this->log('Cookie Name', ['value' => $cookieName]);
 
-       $cookiesToken = isset($_COOKIE[$cookieName])? $_COOKIE[$cookieName]: null;
+        $cookiesToken = isset($_COOKIE[$cookieName])? $_COOKIE[$cookieName]: null;
 
-       $headersToken = $this->getBearerToken();
-       $accessToken = $headersToken ? $headersToken : $cookiesToken;
+        $headersToken = $this->getBearerToken();
+        $accessToken = $headersToken ? $headersToken : $cookiesToken;
 
-       if($cookiesToken) {
-           $this->log('Token from Cookies', ['value' => $cookiesToken]);
-       }
-       if($headersToken) {
-           $this->log('Token from Headers', ['value' => '' . $headersToken]);
-       }
+        if($cookiesToken) {
+            $this->log('Token from Cookies', ['value' => $cookiesToken]);
+        }
+        if($headersToken) {
+            $this->log('Token from Headers', ['value' => '' . $headersToken]);
+        }
 
-       if($accessToken) {
-           $this->log('Using Token', ['value' => $accessToken]);
-       } else {
-           $this->log('Token wasn\'t found', []);
-       }
+        if($accessToken) {
+            $this->log('Using Token', ['value' => $accessToken]);
+        } else {
+            $this->log('Token wasn\'t found', []);
+        }
 
-       $useTopcoderAuthToken = c('Plugins.Topcoder.UseTopcoderAuthToken');
-       if($useTopcoderAuthToken && $accessToken) {
+        $useTopcoderAuthToken = c('Plugins.Topcoder.UseTopcoderAuthToken');
+        if($useTopcoderAuthToken && $accessToken) {
             // If a token found to end the existing session
             if(Gdn::session()->isValid()) {
                 try {
@@ -84,7 +182,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.Auth0Audience');
             $CLIENT_SECRET = c('Plugins.Topcoder.SSO.Auth0ClientSecret');
 
-           $decodedToken = null;
+            $decodedToken = null;
             try {
                 $decodedToken = (new Parser())->parse((string)$accessToken);
             } catch(\Exception $e) {
@@ -96,14 +194,14 @@ class TopcoderPlugin extends Gdn_Plugin {
             $signatureVerifier = null;
             $issuer = $decodedToken->hasClaim('iss')? $decodedToken->getClaim('iss'): null;
             if ($issuer != $AUTH0_DOMAIN){
-               $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
-               return;
+                $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
+                return;
             }
             if($decodedToken->getHeader('alg') === 'RS256' ) {
                 $jwksUri  = $issuer . '.well-known/jwks.json';
                 if($this->jwksFetcher == null) {
-                     $this->jwksFetcher = new JWKFetcher();
-                 }
+                    $this->jwksFetcher = new JWKFetcher();
+                }
                 $jwks = $this->jwksFetcher->getKeys($jwksUri);
                 $signatureVerifier= new AsymmetricVerifier($jwks);
             } else if ($decodedToken->getHeader('alg') === 'HS256' ) {
@@ -122,8 +220,27 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $tokenVerifier->verify($accessToken);
                 $this->log('Verification of the token was successful', ['result' ,true]);
             } catch (\Exception $e) {
-                $this->log('Verification of the token was failed', ['Error' => $e.getMessage]);
-                return;
+                if(strpos($e->getMessage(), "Expiration Time") === 0) {
+                   $this->log('The token was expired', []);
+                   $refreshToken = $this->getRefreshToken($accessToken);
+                   if($refreshToken) {
+                       setcookie('refresh_token', $refreshToken);
+                   } else {
+                       $this->log('Couldn\'t  get a refresh token. Ending the current session...', []);
+                       if(Gdn::session()->isValid()) {
+                           try {
+                               Gdn::session()->end(Gdn::authenticator());
+                           } catch  (\Exception $e) {
+                               $this->log('Ending session', ['Error' => $e.getMessage]);
+                               return;
+                           }
+                       }
+                       return;
+                   }
+                } else {
+                    $this->log('Verification of the token was failed', ['Error' => $e . getMessage]);
+                    return;
+                }
             }
 
             $usernameClaim = c('Plugins.Topcoder.SSO.UsernameClaim');
@@ -206,40 +323,38 @@ class TopcoderPlugin extends Gdn_Plugin {
         return null;
     }
 
-      /**
-     * The settings page for the topcoder plugin.
-     *
-     * @param Gdn_Controller $sender
+    /**
+     * Refresh a token from an identity service
+     * @return |null
      */
-    public function settingsController_topcoder_create($sender) {
-        $sender->permission('Garden.Settings.Manage');
-        $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
+    public function getRefreshToken($token)  {
+        $TOPCODER_AUTH0_AUTH_URL = c('Plugins.Topcoder.SSO.Auth0Domain').c('Plugins.Topcoder.SSO.AuthorizationURI');
+        $options = array('http' => array(
+            'method' => 'GET',
+            'header' => 'Authorization: Bearer '.$token
+        ));
 
-        $cf = new ConfigurationModule($sender);
-
-        // Form submission handling
-        if(Gdn::request()->isAuthenticatedPostBack()) {
-            $cf->form()->validateRule('Plugins.Topcoder.BaseApiURL', 'ValidateRequired', t('You must provide Base API URL.'));
-            $cf->form()->validateRule('Plugins.Topcoder.MemberApiURI', 'ValidateRequired', t('You must provide MemberAPI URI.'));
-            $cf->form()->validateRule('Plugins.Topcoder.RoleApiURI', 'ValidateRequired', t('You must provide Role API URI.'));
-            $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
-            if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
-                $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
-                $cf->form()->validateRule('Plugins.Topcoder.SSO.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim.'));
+        $context = stream_context_create($options);
+        try {
+            $data = file_get_contents($TOPCODER_AUTH0_AUTH_URL, false, $context);
+            if($data !== false) {
+                $response = json_decode($data);
+                return $response->result->content->refreshToken;
             }
+        } catch (Exception $e) {
+            $this->log('Couldn\'t refresh a token', ['Error' => $e->getMessage()]);
         }
 
-        $cf->initialize([
-            'Plugins.Topcoder.BaseApiURL' => ['Control' => 'TextBox', 'Default' => 'https://api.topcoder-dev.com', 'Description' => 'TopCoder Base API URL'],
-            'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/members', 'Description' => 'Topcoder Member API URI'],
-            'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '/v3/roles', 'Description' => 'Topcoder Role API URI'],
-            'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => 'https://www.topcoder.com/members', 'Description' => 'Topcoder Member Profile URL'],
-            'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
-            'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => 'v3jwt', 'Description' => 'Topcoder Cookie Name'],
-            'Plugins.Topcoder.SSO.UsernameClaim' => ['Control' => 'TextBox', 'Default' => 'handle', 'Description' => 'Topcoder Username Claim'],
-        ]);
+        return null;
+    }
 
-        $cf->renderAll();
+    /**
+     * Extra styling on the discussion view.
+     *
+     * @param \Vanilla\Web\Asset\LegacyAssetModel $sender
+     */
+    public function assetModel_styleCss_handler($sender) {
+        $sender->addCssFile('topcoder.css', 'plugins/Topcoder');
     }
 
     /**
@@ -251,11 +366,37 @@ class TopcoderPlugin extends Gdn_Plugin {
         ?>
         <td>
             <?php
-                echo !$args['User']->UserID? '' :'<a class="btn btn-icon-border" href="' . url('/user/export/' . $args['User']->UserID) . '">Export</a>';
-             ?>
+            echo !$args['User']->UserID? '' :'<a class="btn btn-icon-border" href="' . url('/user/export/' . $args['User']->UserID) . '">Export</a>';
+            ?>
         </td>
         <?php
-      }
+    }
+    /** **/
+    /**
+     * Add scripts. Add script to hide iPhone browser bar on pageload.
+     */
+    public function base_render_before($sender) {
+        if (is_object($sender->Head)) {
+            $sender->Head->addString($this->getJS());
+        }
+    }
+
+    /**
+     * Silently Token Refresh Logic for JWT RS256
+     * @return string
+     */
+    private function getJS() {
+        $url= c('Plugins.Topcoder.SSO.RefreshTokenURL');
+        $jsString = '<script>function prepareFrame() {'.
+            'var ifrm = document.createElement("iframe");'.
+            'ifrm.setAttribute("src", "'.$url.'");'.
+            'ifrm.style.width = "0px"; ifrm.style.height = "0px";'.
+            'document.body.appendChild(ifrm);}'.
+            'window.onload = prepareFrame;</script>';
+        return $jsString;
+    }
+
+    /** ------------------- Export Data Related Methods --------------------- */
 
     /**
      * Generate  an export report (/user/export/{:userID})
@@ -433,6 +574,8 @@ class TopcoderPlugin extends Gdn_Plugin {
         return new Data($result, ['paging' => $paging]);
     }
 
+    /** ------------------- Topcoder Profile and UI customization Related Methods --------------------- */
+
     /**
      * Use a Topcoder Photo on the user' profile.
      * Add/Remove Links in/from a sided menu.
@@ -456,7 +599,7 @@ class TopcoderPlugin extends Gdn_Plugin {
     public static function getTopcoderProfileUrl($name) {
         $topcoderMemberProfileUrl = c('Plugins.Topcoder.MemberProfileURL');
         return $topcoderMemberProfileUrl . '/' . $name;
-   }
+    }
 
     /**
      * Get a Topcoder Member Profile
@@ -577,7 +720,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                 $rolesResponse = json_decode($rolesData);
                 if ($rolesResponse->result->status === 200 && $rolesResponse->result->content !== null) {
-                     return $rolesResponse->result->content;
+                    return $rolesResponse->result->content;
                 }
             }
         }
@@ -883,7 +1026,7 @@ if (!function_exists('userAnchor')) {
         $attributes = [
             'class' => $cssClass,
             'rel' => val('Rel', $options)
-          ];
+        ];
         if (isset($options['title'])) {
             $attributes['title'] = $options['title'];
         }
@@ -1045,4 +1188,3 @@ if (!function_exists('writeActivity')) {
         <?php
     }
 }
-
