@@ -12,7 +12,6 @@ use Garden\Web\Data;
 use Garden\Web\Exception\NotFoundException;
 use Vanilla\ApiUtils;
 
-
 use Auth0\SDK\Exception\InvalidTokenException;
 use Auth0\SDK\Helpers\JWKFetcher;
 use Auth0\SDK\Helpers\Tokens\AsymmetricVerifier;
@@ -34,7 +33,6 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     public function __construct() {
         $this->providerKey = 'topcoder';
-        $this->provider = $this->provider();
     }
 
     /**
@@ -143,6 +141,10 @@ class TopcoderPlugin extends Gdn_Plugin {
      * Check if we have a valid token associated with the request.
      */
     public function gdn_auth_startAuthenticator_handler() {
+        // Skip it if Vanilla Installation setup
+        if(!c('Garden.Installed')) {
+            return;
+        }
         $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
 
         $cookieName = c('Plugins.Topcoder.SSO.CookieName');
