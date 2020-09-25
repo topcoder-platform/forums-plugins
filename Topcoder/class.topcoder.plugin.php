@@ -77,7 +77,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             $AUTH0_DOMAIN = c('Plugins.Topcoder.SSO.Auth0Domain');
             $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.Auth0Audience');
-            $CLIENT_SECRET = c('Plugins.Topcoder.SSO.Auth0ClientSecret');
+            $CLIENT_SECRET = c('Plugins.Topcoder.SSO.TopcoderH256Secret');
 
             $decodedToken = (new Parser())->parse((string) $accessToken);
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
