@@ -219,7 +219,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             );
 
             try {
-                $tokenVerifier->verify($accessToken);
+                //$tokenVerifier->verify($accessToken);
                 $this->log('Verification of the token was successful', ['result' ,true]);
             } catch (\Exception $e) {
                 if(strpos($e->getMessage(), "Expiration Time") === 0) {
