@@ -1,5 +1,7 @@
 {
   "require": {
-    "auth0/auth0-php": "^7.2"
+    "auth0/auth0-php": "^7.2",
+    "guzzlehttp/guzzle": "^6.5",
+    "kodus/file-cache": "^1.1"
   }
 }
