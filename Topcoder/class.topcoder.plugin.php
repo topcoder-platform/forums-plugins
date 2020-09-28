@@ -41,7 +41,6 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @throws Gdn_UserException
      */
     public function setup() {
-
         $model = new Gdn_AuthenticationProviderModel();
         $provider = $model->getID('topcoder');
         if(!$provider) {
