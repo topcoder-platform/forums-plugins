@@ -36,6 +36,30 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Run once on enable.
+     *
+     * @throws Gdn_UserException
+     */
+    public function setup() {
+
+        $model = new Gdn_AuthenticationProviderModel();
+        $provider = $model->getID('topcoder');
+        if(!$provider) {
+            $provider['AuthenticationKey'] = 'topcoder';
+            $provider['AuthenticationSchemeAlias'] = 'topcoder';
+            $provider['SignInUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignInUrl');
+            $provider['SignOutUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl');
+            $provider['Active'] = 1;
+            $provider['Default'] = 1;
+            $model->save($provider);
+        }else {
+            $model->update(['SignInUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignInUrl'),
+                'SignOutUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl')], ['AuthenticationKey' => 'topcoder']);
+        }
+    }
+
+
+    /**
      * The settings page for the topcoder plugin.
      *
      * @param Gdn_Controller $sender
@@ -44,8 +68,8 @@ class TopcoderPlugin extends Gdn_Plugin {
         $sender->permission('Garden.Settings.Manage');
         $sender->setData('Title', sprintf(t('%s Settings'), 'Topcoder'));
 
-        $provider = $this->provider();
-        $cf = new ConfigurationModule($sender);
+        $cf = new TopcoderConfigurationModule($sender);
+
         // Form submission handling
         if(Gdn::request()->isAuthenticatedPostBack()) {
             $cf->form()->validateRule('Plugins.Topcoder.BaseApiURL', 'ValidateRequired', t('You must provide Base API URL.'));
@@ -53,18 +77,14 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cf->form()->validateRule('Plugins.Topcoder.RoleApiURI', 'ValidateRequired', t('You must provide Role API URI.'));
             $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
             if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
-                $cf->form()->validateRule('Plugins.Topcoder.SSO.SignInURL', 'ValidateRequired', t('You must provide SignIn URL.'));
+                $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateRequired', t('You must provide SignIn URL.'));
+                $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateRequired', t('You must provide SignOut URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateRequired', t('You must provide Refresh Token URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim.'));
-            }
-
-            if($cf->form()->errorCount() == 0) {
-                $model = new Gdn_AuthenticationProviderModel();
-                $provider['SignInUrl'] = $cf->form()->getFormValue('Plugins.Topcoder.SSO.SignInURL');
-                if ($model->save($provider) === false) {
-                    $cf->form()->addError('Couldn\'t save Authentication Provider');
-                }
+                $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateUrl','You must provide valid SignIn URL.');
+                $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateUrl','You must provide valid SignOut URL.');
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateUrl','You must provide valid Refresh Token URL.');
             }
         }
 
@@ -74,15 +94,13 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Role API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member Profile URL'],
             'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
-            'Plugins.Topcoder.SSO.SignInURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
+            'AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
+            'AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
             'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim'],
         ]);
 
-        $data = $cf->form()->formData();
-        $data['Plugins.Topcoder.SSO.SignInURL'] =$provider['SignInUrl'];
-        $cf->form()->setData($data);
         $cf->renderAll();
     }
 
@@ -107,9 +125,10 @@ class TopcoderPlugin extends Gdn_Plugin {
     public function isConfigured() {
         $provider = $this->provider();
         $signInURL = val('SignInUrl', $provider);
+        $signOutURL = val('SignOutUrl', $provider);
         $cookieName = c('Plugins.Topcoder.SSO.CookieName', null);
         $claim = c('Plugins.Topcoder.SSO.UsernameClaim', null);
-        $isConfigured = isset($signInURL) &&
+        $isConfigured = isset($signInURL) &&  isset($signOutURL) &&
             isset($cookieName) &&
             isset($claim);
         return $isConfigured;
@@ -265,7 +284,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                     if($userID) {
                         // Start the 'session'
                         if (!Gdn::session()->isValid()) {
-                            Gdn::session()->start($userID, false);
+                            Gdn::session()->start($userID, true);
                         }
                     }
                 } else {
