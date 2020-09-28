@@ -198,9 +198,6 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
 
-            $AUTH0_DOMAIN = c('Plugins.Topcoder.SSO.Auth0Domain');
-            $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.Auth0Audience');
-            $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderH256Secret');
             $VALID_ISSUERS = explode(",",  c('Plugins.Topcoder.ValidIssuers'));
             $this->log('Valid Issuers:', ['result' => $VALID_ISSUERS]);
 
@@ -208,7 +205,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             try {
                 $decodedToken = (new Parser())->parse((string)$accessToken);
             } catch(\Exception $e) {
-                $this->log('Coudl\'not decode a token', ['Error' => $e.getMessage]);
+                $this->log('Could\'not decode a token', ['Error' => $e.getMessage]);
                 return;
             }
 
@@ -216,11 +213,14 @@ class TopcoderPlugin extends Gdn_Plugin {
             $signatureVerifier = null;
             $issuer = $decodedToken->hasClaim('iss')? $decodedToken->getClaim('iss'): null;
             if ($issuer === null || !in_array($issuer, $VALID_ISSUERS)){
-                $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
+                $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Valid issuers' => $VALID_ISSUERS]);
                 return;
             }
             $this->log('Issuer', ['Issuer' => $issuer]);
+
+            $AUTH0_AUDIENCE = null;
             if($decodedToken->getHeader('alg') === 'RS256' ) {
+                $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderR256ID');
                 $jwksUri  = $issuer . '.well-known/jwks.json';
                 if($this->jwksFetcher == null) {
                     $this->jwksFetcher = new JWKFetcher();
@@ -228,6 +228,8 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $jwks = $this->jwksFetcher->getKeys($jwksUri);
                 $signatureVerifier= new AsymmetricVerifier($jwks);
             } else if ($decodedToken->getHeader('alg') === 'HS256' ) {
+                $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderH256ID');
+                $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderH256Secret');
                 $signatureVerifier = new SymmetricVerifier($CLIENT_H256SECRET);
             } else {
                 return;
