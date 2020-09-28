@@ -27,9 +27,10 @@ use Lcobucci\JWT\Token;
 
 class TopcoderPlugin extends Gdn_Plugin {
 
-    private $jwksFetcher;
+    const DEFAULT_EXPIRATION = 86400;
     private $providerKey;
     private $provider;
+    private $cacheHandler;
 
     public function __construct() {
         $this->providerKey = 'topcoder';
@@ -55,8 +56,38 @@ class TopcoderPlugin extends Gdn_Plugin {
             $model->update(['SignInUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignInUrl'),
                 'SignOutUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl')], ['AuthenticationKey' => 'topcoder']);
         }
+
+        $this->initCache();
+
     }
 
+    public function onDisable() {
+        if($this->cacheHandler) {
+            $this->cacheHandler->clear();
+        }
+    }
+
+    /**
+     * Init a cache to store the contents of the public keys used to check the token signature
+     */
+    private function initCache() {
+        $JWKS_PATH_CACHE = PATH_ROOT. "/jwks";
+        if (!file_exists($JWKS_PATH_CACHE)) {
+           if(!mkdir($JWKS_PATH_CACHE, 0777)) {
+               Logger::event(
+                   'topcoder_plugin_logging',
+                   Logger::ERROR,
+                   'Couldn\'t create a cache directory',
+                   ['Dicretory' => $JWKS_PATH_CACHE]
+               );
+               return;
+           }
+        }
+
+        if(isWritable($JWKS_PATH_CACHE)) {
+            $this->cacheHandler = new FileCache($JWKS_PATH_CACHE, self::DEFAULT_EXPIRATION);
+        }
+    }
 
     /**
      * The settings page for the topcoder plugin.
@@ -222,11 +253,9 @@ class TopcoderPlugin extends Gdn_Plugin {
             if($decodedToken->getHeader('alg') === 'RS256' ) {
                 $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderR256ID');
                 $jwksUri  = $issuer . '.well-known/jwks.json';
-                if($this->jwksFetcher == null) {
-                    $this->jwksFetcher = new JWKFetcher();
-                }
-                $jwks = $this->jwksFetcher->getKeys($jwksUri);
-                $signatureVerifier= new AsymmetricVerifier($jwks);
+                $jwksHttpOptions = [ 'base_uri' => $jwksUri ];
+                $jwksFetcher = new JWKFetcher($this->cacheHandler, $jwksHttpOptions );
+                $signatureVerifier     = new AsymmetricVerifier($jwksFetcher);
             } else if ($decodedToken->getHeader('alg') === 'HS256' ) {
                 $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderH256ID');
                 $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderH256Secret');
