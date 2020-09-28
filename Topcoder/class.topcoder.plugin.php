@@ -200,7 +200,9 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             $AUTH0_DOMAIN = c('Plugins.Topcoder.SSO.Auth0Domain');
             $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.Auth0Audience');
-            $CLIENT_SECRET = c('Plugins.Topcoder.SSO.TopcoderH256Secret');
+            $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderH256Secret');
+            $VALID_ISSUERS = explode(",",  c('Plugins.Topcoder.ValidIssuers'));
+            $this->log('Valid Issuers:', ['result' => $VALID_ISSUERS]);
 
             $decodedToken = null;
             try {
@@ -213,10 +215,11 @@ class TopcoderPlugin extends Gdn_Plugin {
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
             $signatureVerifier = null;
             $issuer = $decodedToken->hasClaim('iss')? $decodedToken->getClaim('iss'): null;
-            if ($issuer != $AUTH0_DOMAIN){
+            if ($issuer === null || !in_array($issuer, $VALID_ISSUERS)){
                 $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Expected issuer' => $AUTH0_DOMAIN]);
                 return;
             }
+            $this->log('Issuer', ['Issuer' => $issuer]);
             if($decodedToken->getHeader('alg') === 'RS256' ) {
                 $jwksUri  = $issuer . '.well-known/jwks.json';
                 if($this->jwksFetcher == null) {
@@ -225,7 +228,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $jwks = $this->jwksFetcher->getKeys($jwksUri);
                 $signatureVerifier= new AsymmetricVerifier($jwks);
             } else if ($decodedToken->getHeader('alg') === 'HS256' ) {
-                $signatureVerifier = new SymmetricVerifier($CLIENT_SECRET);
+                $signatureVerifier = new SymmetricVerifier($CLIENT_H256SECRET);
             } else {
                 return;
             }
@@ -237,8 +240,8 @@ class TopcoderPlugin extends Gdn_Plugin {
             );
 
             try {
-                //$tokenVerifier->verify($accessToken);
-                $this->log('Verification of the token was successful', ['result' ,true]);
+                $verifiedToken = $tokenVerifier->verify($accessToken);
+                $this->log('Verification of the token was successful', ['result' => true, 'verified' => $verifiedToken]);
             } catch (\Exception $e) {
                 if(strpos($e->getMessage(), "Expiration Time") === 0) {
                    $this->log('The token was expired', []);
