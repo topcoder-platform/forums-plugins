@@ -111,7 +111,8 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateRequired', t('You must provide SignOut URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateRequired', t('You must provide Refresh Token URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
-                $cf->form()->validateRule('Plugins.Topcoder.SSO.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim.'));
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim for HS256 JWT.'));
+                $cf->form()->validateRule('Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim for RS256 JWT.'));
                 $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateUrl','You must provide valid SignIn URL.');
                 $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateUrl','You must provide valid SignOut URL.');
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateUrl','You must provide valid Refresh Token URL.');
@@ -128,7 +129,8 @@ class TopcoderPlugin extends Gdn_Plugin {
             'AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
             'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
-            'Plugins.Topcoder.SSO.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim'],
+            'Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for HS256 JWT'],
+            'Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for RS256 JWT'],
         ]);
 
         $cf->renderAll();
@@ -250,15 +252,19 @@ class TopcoderPlugin extends Gdn_Plugin {
             $this->log('Issuer', ['Issuer' => $issuer]);
 
             $AUTH0_AUDIENCE = null;
+            $USERNAME_CLAIM= null;
             if($decodedToken->getHeader('alg') === 'RS256' ) {
-                $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderR256ID');
+                $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderRS256.ID');
+                $USERNAME_CLAIM = c('Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim');
                 $jwksUri  = $issuer . '.well-known/jwks.json';
                 $jwksHttpOptions = [ 'base_uri' => $jwksUri ];
                 $jwksFetcher = new JWKFetcher($this->cacheHandler, $jwksHttpOptions );
                 $signatureVerifier     = new AsymmetricVerifier($jwksFetcher);
+
             } else if ($decodedToken->getHeader('alg') === 'HS256' ) {
-                $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderH256ID');
-                $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderH256Secret');
+                $USERNAME_CLAIM = c('Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim');
+                $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderHS256.ID');
+                $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderHS256.Secret');
                 $signatureVerifier = new SymmetricVerifier($CLIENT_H256SECRET);
             } else {
                 return;
@@ -271,11 +277,16 @@ class TopcoderPlugin extends Gdn_Plugin {
             );
 
             try {
-                //$verifiedToken = $tokenVerifier->verify($accessToken);
-                //$this->log('Verification of the token was successful', ['result' => true, 'verified' => $verifiedToken]);
-                $this->log('Verification of the token was successful', ['result' => true, 'verified' => $verifiedToken]);
+                    $tokenVerifier->verify($accessToken);
+                    $this->log('Verification of the token was successful', []);
+            } catch(\Auth0\SDK\Exception\InvalidTokenException $e) {
+                if($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), 'Audience (aud) claim must be a string)') === 0) {
+                    // FIX: a Topcoder payload (HS256) doesn't have 'aud'
+                    $this->log('Verification of the HS256 token wasn\'t successful', ['Error' => $e . getMessage]);
+                }
             } catch (\Exception $e) {
-                if(strpos($e->getMessage(), "Expiration Time") === 0) {
+                // Silently Token Refresh Logic for HS256 JWT
+                if($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), "Expiration Time") === 0) {
                    $this->log('The token was expired', []);
                    $refreshToken = $this->getRefreshToken($accessToken);
                    if($refreshToken) {
@@ -298,15 +309,14 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
 
-            $usernameClaim = c('Plugins.Topcoder.SSO.UsernameClaim');
-            $this->log('Username Claim', ['value' => $usernameClaim]);
+            $this->log('Username Claim', ['value' => $USERNAME_CLAIM]);
 
-            if(!$decodedToken->hasClaim($usernameClaim)) {
-                $this->log('Couldn\'t get the requested claim', ['Claim' => $usernameClaim]);
+            if(!$decodedToken->hasClaim($USERNAME_CLAIM)) {
+                $this->log('Couldn\'t get the requested claim', ['Claim' => $USERNAME_CLAIM]);
                 return;
             }
 
-            $topcoderUserName = $decodedToken->getClaim($usernameClaim);
+            $topcoderUserName = $decodedToken->getClaim($USERNAME_CLAIM);
             if($topcoderUserName) {
                 $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
 
