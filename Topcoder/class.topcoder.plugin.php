@@ -9,6 +9,7 @@ if (!class_exists('Auth0\SDK\Auth0')){
 
 use Garden\Schema\Schema;
 use Garden\Web\Data;
+use Garden\Web\Exception\ClientException;
 use Garden\Web\Exception\NotFoundException;
 use Vanilla\ApiUtils;
 
@@ -32,7 +33,16 @@ class TopcoderPlugin extends Gdn_Plugin {
     private $provider;
     private $cacheHandler;
 
+    const ERROR_CODES = [ 'TokenNotFound' => 'Token wasn\'t found.',
+        'TokenNotDecoded' => 'Could\'not decode a token.',
+        'InvalidTokenIssuer'=>'Invalid Token Issuer.',
+        'TokenRefreshFailed' => 'Couldn\'t  get a refresh token.',
+        'TokenVerificationFailed' => 'Verification of the token was failed.',
+        'UsernameClaimNotFound' => 'Couldn\'t get the requested claim.',
+        'VanillaUserNotFound' => 'Sorry, no Vanilla account could be found related to the Topcoder username.'];
+
     public function __construct() {
+        parent::__construct();
         $this->providerKey = 'topcoder';
     }
 
@@ -78,7 +88,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                    'topcoder_plugin_logging',
                    Logger::ERROR,
                    'Couldn\'t create a cache directory',
-                   ['Dicretory' => $JWKS_PATH_CACHE]
+                   ['Directory' => $JWKS_PATH_CACHE]
                );
                return;
            }
@@ -189,84 +199,99 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
-     * Check if we have a valid token associated with the request.
+     * Authenticate a user using the JWT supplied from the cookies
      */
     public function gdn_auth_startAuthenticator_handler() {
         // Skip it if Vanilla Installation setup
         if(!c('Garden.Installed')) {
             return;
         }
-        $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', []);
+        $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
+
+        // Ignore entry Controller endpoints
+        if(strpos(Gdn::request()->path(), 'entry/' ) === 0) {
+            return;
+        }
 
         $cookieName = c('Plugins.Topcoder.SSO.CookieName');
         $this->log('Cookie Name', ['value' => $cookieName]);
 
-        $cookiesToken = isset($_COOKIE[$cookieName])? $_COOKIE[$cookieName]: null;
+        $cookiesToken = isset($_COOKIE[$cookieName]) ? $_COOKIE[$cookieName] : null;
 
         $headersToken = $this->getBearerToken();
         $accessToken = $headersToken ? $headersToken : $cookiesToken;
 
-        if($cookiesToken) {
+        if ($cookiesToken) {
             $this->log('Token from Cookies', ['value' => $cookiesToken]);
         }
-        if($headersToken) {
+        if ($headersToken) {
             $this->log('Token from Headers', ['value' => '' . $headersToken]);
         }
 
-        if($accessToken) {
+        if ($accessToken) {
             $this->log('Using Token', ['value' => $accessToken]);
         } else {
             $this->log('Token wasn\'t found', []);
+            $this->fireEvent('BadSignIn', [
+                'jwt' =>  $accessToken,
+                'ErrorCode' => 'TokenNotFound'
+            ]);
+            return;
         }
 
         $useTopcoderAuthToken = c('Plugins.Topcoder.UseTopcoderAuthToken');
-        if($useTopcoderAuthToken && $accessToken) {
-            // If a token found to end the existing session
-            if(Gdn::session()->isValid()) {
-                try {
-                    Gdn::session()->end(Gdn::authenticator());
-                } catch  (\Exception $e) {
-                    $this->log('Ending session', ['Error' => $e.getMessage]);
-                    return;
-                }
-            }
 
-            $VALID_ISSUERS = explode(",",  c('Plugins.Topcoder.ValidIssuers'));
+        if ($useTopcoderAuthToken && $accessToken) {
+
+            $VALID_ISSUERS = explode(",", c('Plugins.Topcoder.ValidIssuers'));
             $this->log('Valid Issuers:', ['result' => $VALID_ISSUERS]);
 
             $decodedToken = null;
             try {
                 $decodedToken = (new Parser())->parse((string)$accessToken);
-            } catch(\Exception $e) {
-                $this->log('Could\'not decode a token', ['Error' => $e.getMessage]);
+            } catch (\Exception $e) {
+                $this->log('Could\'not decode a token', ['Error' => $e . getMessage]);
+                $this->fireEvent('BadSignIn', [
+                    'jwt' =>  $accessToken,
+                    'ErrorCode' => 'TokenNotDecoded',
+                ]);
                 return;
             }
 
             $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
             $signatureVerifier = null;
-            $issuer = $decodedToken->hasClaim('iss')? $decodedToken->getClaim('iss'): null;
-            if ($issuer === null || !in_array($issuer, $VALID_ISSUERS)){
+            $issuer = $decodedToken->hasClaim('iss') ? $decodedToken->getClaim('iss') : null;
+            if ($issuer === null || !in_array($issuer, $VALID_ISSUERS)) {
                 $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Valid issuers' => $VALID_ISSUERS]);
+                $this->fireEvent('BadSignIn', [
+                    'jwt' =>  $accessToken,
+                    'ErrorCode' => 'InvalidTokenIssuer',
+                ]);
                 return;
             }
+
             $this->log('Issuer', ['Issuer' => $issuer]);
 
             $AUTH0_AUDIENCE = null;
-            $USERNAME_CLAIM= null;
-            if($decodedToken->getHeader('alg') === 'RS256' ) {
+            $USERNAME_CLAIM = null;
+            if ($decodedToken->getHeader('alg') === 'RS256') {
                 $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderRS256.ID');
                 $USERNAME_CLAIM = c('Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim');
-                $jwksUri  = $issuer . '.well-known/jwks.json';
-                $jwksHttpOptions = [ 'base_uri' => $jwksUri ];
-                $jwksFetcher = new JWKFetcher($this->cacheHandler, $jwksHttpOptions );
-                $signatureVerifier     = new AsymmetricVerifier($jwksFetcher);
+                $jwksUri = $issuer . '.well-known/jwks.json';
+                $jwksHttpOptions = ['base_uri' => $jwksUri];
+                $jwksFetcher = new JWKFetcher($this->cacheHandler, $jwksHttpOptions);
+                $signatureVerifier = new AsymmetricVerifier($jwksFetcher);
 
-            } else if ($decodedToken->getHeader('alg') === 'HS256' ) {
+            } else if ($decodedToken->getHeader('alg') === 'HS256') {
                 $USERNAME_CLAIM = c('Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim');
                 $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderHS256.ID');
                 $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderHS256.Secret');
                 $signatureVerifier = new SymmetricVerifier($CLIENT_H256SECRET);
             } else {
+                $this->fireEvent('BadSignIn', [
+                    'jwt' =>  $accessToken,
+                    'ErrorCode' => 'Not supported "alg"',
+                ]);
                 return;
             }
 
@@ -277,67 +302,110 @@ class TopcoderPlugin extends Gdn_Plugin {
             );
 
             try {
-                    $tokenVerifier->verify($accessToken);
-                    $this->log('Verification of the token was successful', []);
-            } catch(\Auth0\SDK\Exception\InvalidTokenException $e) {
-                if($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), 'Audience (aud) claim must be a string)') === 0) {
+                $tokenVerifier->verify($accessToken);
+                $this->log('Verification of the token was successful', []);
+            } catch (\Auth0\SDK\Exception\InvalidTokenException $e) {
+                if ($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), 'Audience (aud) claim must be a string)') === 0) {
                     // FIX: a Topcoder payload (HS256) doesn't have 'aud'
                     $this->log('Verification of the HS256 token wasn\'t successful', ['Error' => $e . getMessage]);
                 }
             } catch (\Exception $e) {
                 // Silently Token Refresh Logic for HS256 JWT
-                if($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), "Expiration Time") === 0) {
-                   $this->log('The token was expired', []);
-                   $refreshToken = $this->getRefreshToken($accessToken);
-                   if($refreshToken) {
-                       setcookie('refresh_token', $refreshToken);
-                   } else {
-                       $this->log('Couldn\'t  get a refresh token. Ending the current session...', []);
-                       if(Gdn::session()->isValid()) {
-                           try {
-                               Gdn::session()->end(Gdn::authenticator());
-                           } catch  (\Exception $e) {
-                               $this->log('Ending session', ['Error' => $e.getMessage]);
-                               return;
-                           }
-                       }
-                       return;
-                   }
+                if ($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), "Expiration Time") === 0) {
+                    $this->log('The token was expired', []);
+                    $refreshToken = $this->getRefreshToken($accessToken);
+                    if ($refreshToken) {
+                        setcookie('refresh_token', $refreshToken);
+                    } else {
+                        Gdn::session()->end(Gdn::authenticator());
+                        $this->log('Couldn\'t  get a refresh token. Ending the current session...', []);
+                        $this->fireEvent('BadSignIn', [
+                            'jwt' =>  $accessToken,
+                            'ErrorCode' => 'TokenRefreshFailed',
+                        ]);
+                        return;
+                    }
                 } else {
                     $this->log('Verification of the token was failed', ['Error' => $e . getMessage]);
+                    $this->fireEvent('BadSignIn', [
+                        'jwt' =>  $accessToken,
+                        'ErrorCode' => 'TokenVerificationFailed',
+                    ]);
                     return;
                 }
             }
 
             $this->log('Username Claim', ['value' => $USERNAME_CLAIM]);
 
-            if(!$decodedToken->hasClaim($USERNAME_CLAIM)) {
+            if (!$decodedToken->hasClaim($USERNAME_CLAIM)) {
                 $this->log('Couldn\'t get the requested claim', ['Claim' => $USERNAME_CLAIM]);
+                $this->fireEvent('BadSignIn', [
+                    'jwt' =>  $accessToken,
+                    'ErrorCode' => 'UsernameClaimNotFound',
+                ]);
                 return;
             }
 
             $topcoderUserName = $decodedToken->getClaim($USERNAME_CLAIM);
-            if($topcoderUserName) {
+            if ($topcoderUserName) {
                 $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
 
                 $userModel = Gdn::userModel();
                 $user = $userModel->getByUsername($topcoderUserName);
-                if($user) {
+                if ($user) {
                     $userID = val('UserID', $user);
                     $this->log('Found Vanilla User:', ['Vanilla UserID' => $userID]);
-                    if($userID) {
-                        // Start the 'session'
-                        if (!Gdn::session()->isValid()) {
-                            Gdn::session()->start($userID, true);
+                    if ($userID) {
+                        Gdn::session()->start($userID, true);
+                        $userModel->fireEvent('AfterSignIn');
+                        $session = Gdn::session();
+                        if (!$session->isValid()) {
+                            throw new ClientException('The session could not be started.', 401);
                         }
                     }
                 } else {
                     $this->log('Vanilla User was not found', []);
+                    $this->fireEvent('BadSignIn', [
+                        'jwt' =>  $accessToken,
+                        'ErrorCode' => 'VanillaUserNotFound',
+                    ]);
+                    return;
                 }
             }
         }
     }
 
+    public function base_afterSignIn_handler($sender, $args) {
+        $this->log('base_afterSignIn_handler', []);
+        if(!Gdn::session()->isValid()) {
+            throw new ClientException('The session could not be started', 401);
+        }
+    }
+
+    public function base_badSignIn_handler($sender, $args) {
+        $this->log('base_badSignIn_handler:', ['args' => $args ]);
+        try {
+            Gdn::session()->end();
+        } catch  (\Exception $e) {
+            $this->log('Ending session', ['Error' => $e.getMessage]);
+        }
+
+        //$url = Gdn::router()->getDestination('DefaultController');
+        redirectTo(url('/entry/topcoder').'/?errorCode='.$args['ErrorCode'].'&action=signin');
+
+    }
+
+    public function entryController_topcoder_create($sender, $action = '', $errorCode = '') {
+        $this->log('entryController_topcoder_create:', ['action' => $action ]);
+        if($errorCode && $action=='signin') {
+            $sender->SelfUrl = '';
+            $sender->setData('Title', 'Error');
+            $sender->setData('Error', self::ERROR_CODES[$errorCode]);
+            $sender->render('index', 'entry', 'plugins/topcoder');
+        } else {
+            redirectTo('/entry/signin?Target=discussions', 302);
+        }
+    }
     public function log($message, $data) {
         if (c('Vanilla.SSO.Debug')) {
             Logger::event(
