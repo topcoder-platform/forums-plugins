@@ -208,8 +208,9 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
 
-        // Ignore entry Controller endpoints
-        if(strpos(Gdn::request()->path(), 'entry/' ) === 0) {
+        // Ignore EntryController endpoints and ApiController endpoints.
+        // AccessToken for /api will be checked in class.hooks.php
+        if (stringBeginsWith(Gdn::request()->getPath(), '/api/') || stringBeginsWith(Gdn::request()->getPath(), '/entry/')) {
             return;
         }
 
@@ -711,7 +712,9 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     /**
      * Use a Topcoder Photo on the user' profile.
-     * Add/Remove Links in/from a sided menu.
+     * Add Topcoder Links in/from a sided menu.
+     * Remove Edit profile link
+     * Remove Password links
      *
      * @param ProfileController $sender
      * @param array $args
@@ -722,7 +725,43 @@ class TopcoderPlugin extends Gdn_Plugin {
         $sideMenu->addLink('Options', sprite('SpTopcoder').' '.t('View/Edit My Topcoder Profile'), self::getTopcoderProfileUrl($sender->User->Name));
         $sideMenu->removeLink('Options', sprite('SpPicture').' '.t('Change My Picture'));
         $sideMenu->removeLink('Options', sprite('SpQuote').' '.t('Quote Settings'));
+        $sideMenu->removeLink('Options', sprite('SpPassword').' '.t('Change My Password'));
+        $sideMenu->removeLink('Options', sprite('SpPassword').' '.t('Set A Password'));
+        $sideMenu->removeLink('Options', sprite('SpEdit').' '.t('Edit Profile'));
     }
+
+    /**
+     * Remove Edit profile links from Profile Drorpdown Options
+     *
+     * @param $sender
+     * @param $args
+     */
+    public function profileController_beforeProfileOptions_handler($sender, $args) {
+        $sideMenu = $sender->EventArguments['ProfileOptionsDropdown'];
+        $sideMenu->removeItem('edit-profile');
+    }
+
+    /**
+     * Don't show Edit Profile
+     * @param $sender
+     * @param $args
+     */
+    public function profileController_edit_create($sender, $args) {
+        $this->log('profileController_edit_handler', []);
+        redirectTo('/profile');
+    }
+
+    /**
+     * Don't show Change Password
+     * @param $sender
+     * @param $args
+     */
+    public function profileController_password_create($sender, $args) {
+        $this->log('profileController_edit_handler', []);
+        redirectTo('/profile');
+    }
+
+
 
     /**
      * Get a Topcoder Member Profile Url
