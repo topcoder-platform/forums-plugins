@@ -751,6 +751,17 @@ class TopcoderPlugin extends Gdn_Plugin {
         redirectTo('/profile');
     }
 
+    /**
+     * Don't show Change Password
+     * @param $sender
+     * @param $args
+     */
+    public function profileController_password_create($sender, $args) {
+        $this->log('profileController_edit_handler', []);
+        redirectTo('/profile');
+    }
+
+
 
     /**
      * Get a Topcoder Member Profile Url
