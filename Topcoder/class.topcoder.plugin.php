@@ -712,7 +712,9 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     /**
      * Use a Topcoder Photo on the user' profile.
-     * Add/Remove Links in/from a sided menu.
+     * Add Topcoder Links in/from a sided menu.
+     * Remove Edit profile link
+     * Remove Password links
      *
      * @param ProfileController $sender
      * @param array $args
@@ -723,7 +725,32 @@ class TopcoderPlugin extends Gdn_Plugin {
         $sideMenu->addLink('Options', sprite('SpTopcoder').' '.t('View/Edit My Topcoder Profile'), self::getTopcoderProfileUrl($sender->User->Name));
         $sideMenu->removeLink('Options', sprite('SpPicture').' '.t('Change My Picture'));
         $sideMenu->removeLink('Options', sprite('SpQuote').' '.t('Quote Settings'));
+        $sideMenu->removeLink('Options', sprite('SpPassword').' '.t('Change My Password'));
+        $sideMenu->removeLink('Options', sprite('SpPassword').' '.t('Set A Password'));
+        $sideMenu->removeLink('Options', sprite('SpEdit').' '.t('Edit Profile'));
     }
+
+    /**
+     * Remove Edit profile links from Profile Drorpdown Options
+     *
+     * @param $sender
+     * @param $args
+     */
+    public function profileController_beforeProfileOptions_handler($sender, $args) {
+        $sideMenu = $sender->EventArguments['ProfileOptionsDropdown'];
+        $sideMenu->removeItem('edit-profile');
+    }
+
+    /**
+     * Don't show Edit Profile
+     * @param $sender
+     * @param $args
+     */
+    public function profileController_edit_create($sender, $args) {
+        $this->log('profileController_edit_handler', []);
+        redirectTo('/profile');
+    }
+
 
     /**
      * Get a Topcoder Member Profile Url
