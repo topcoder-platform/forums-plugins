@@ -208,8 +208,9 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
 
-        // Ignore entry Controller endpoints
-        if(strpos(Gdn::request()->path(), 'entry/' ) === 0) {
+        // Ignore EntryController endpoints and ApiController endpoints.
+        // AccessToken for /api will be checked in class.hooks.php
+        if (stringBeginsWith(Gdn::request()->getPath(), '/api/') || stringBeginsWith(Gdn::request()->getPath(), '/entry/')) {
             return;
         }
 
