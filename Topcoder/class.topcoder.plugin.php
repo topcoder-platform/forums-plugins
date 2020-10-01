@@ -226,8 +226,6 @@ class TopcoderPlugin extends Gdn_Plugin {
         $headersToken = $this->getBearerToken();
         $accessToken = $headersToken ? $headersToken : $cookiesToken;
 
-        $accessToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5VSkZORGd4UlRVME5EWTBOVVkzTlRkR05qTXlRamxETmpOQk5UYzVRVUV3UlRFeU56TTJRUSJ9.eyJodHRwczovL3RvcGNvZGVyLWRldi10ZXN0LmNvbS9lbWFpbCI6ImFqZWZ0c0B0b3Bjb2Rlci5jb20iLCJodHRwczovL3RvcGNvZGVyLWRldi10ZXN0LmNvbS9oYW5kbGUiOiJUb255SiIsImh0dHBzOi8vdG9wY29kZXItZGV2LXRlc3QuY29tL3JvbGVzIjpbIkNvbm5lY3QgU3VwcG9ydCIsInRlc3RSb2xlIiwiYWFhIiwidG9ueV90ZXN0XzEiLCJDb25uZWN0IE1hbmFnZXIiLCJDb25uZWN0IEFkbWluIiwiY29waWxvdCIsIkNvbm5lY3QgQ29waWxvdCBNYW5hZ2VyIiwiVG9wY29kZXIgVXNlciIsImFkbWluaXN0cmF0b3IiLCJ1LWJhaG4iXSwiaHR0cHM6Ly90b3Bjb2Rlci1kZXYuY29tL3JvbGVzIjpbIkNvbm5lY3QgU3VwcG9ydCIsInRlc3RSb2xlIiwiYWFhIiwidG9ueV90ZXN0XzEiLCJDb25uZWN0IE1hbmFnZXIiLCJDb25uZWN0IEFkbWluIiwiY29waWxvdCIsIkNvbm5lY3QgQ29waWxvdCBNYW5hZ2VyIiwiVG9wY29kZXIgVXNlciIsImFkbWluaXN0cmF0b3IiLCJ1LWJhaG4iXSwiaHR0cHM6Ly90b3Bjb2Rlci1kZXYuY29tL3VzZXJJZCI6Ijg1NDc4OTkiLCJodHRwczovL3RvcGNvZGVyLWRldi5jb20vaGFuZGxlIjoiVG9ueUoiLCJodHRwczovL3RvcGNvZGVyLWRldi5jb20vdXNlcl9pZCI6ImF1dGgwfDg1NDc4OTkiLCJodHRwczovL3RvcGNvZGVyLWRldi5jb20vdGNzc28iOiI4NTQ3ODk5fGZlZWJiNjhhOGY2MDM3ZGQ5ZmExOWE2Nzg2NmZmN2E3NTUzYTI2ZTU0NTFiOWFhNDM4OWQzMjhkNjg4MGM5IiwiaHR0cHM6Ly90b3Bjb2Rlci1kZXYuY29tL2FjdGl2ZSI6dHJ1ZSwibmlja25hbWUiOiJUb255SiIsIm5hbWUiOiJhamVmdHNAdG9wY29kZXIuY29tIiwicGljdHVyZSI6Imh0dHBzOi8vcy5ncmF2YXRhci5jb20vYXZhdGFyL2YxMTg5MmMzODE0MDM2YzY4Yzc4ZjRjZTBmNmM4NzYxP3M9NDgwJnI9cGcmZD1odHRwcyUzQSUyRiUyRmNkbi5hdXRoMC5jb20lMkZhdmF0YXJzJTJGYWoucG5nIiwidXBkYXRlZF9hdCI6IjIwMjAtMDktMjhUMTE6NTU6MzAuMzM1WiIsImVtYWlsIjoiYWplZnRzQHRvcGNvZGVyLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJpc3MiOiJodHRwczovL3RvcGNvZGVyLWRldi5hdXRoMC5jb20vIiwic3ViIjoiYXV0aDB8ODU0Nzg5OSIsImF1ZCI6IkJYV1hVV25pbFZVUGROMDF0MlNlMjlUdzJaWU5HWnZIIiwiaWF0IjoxNjAxMjk0MTcxLCJleHAiOjE2MDEyOTQ3NzEsIm5vbmNlIjoiY1c5cmNsSnRSVjlRUWxSQ1R5NWlNM0JzV0RoalpuZzRaekpmVEY5a05EVm5WRmxHTVRoTGRUQnZVZz09In0.cTbJgZSdCmz727MhFjKpxTwoXJUq003eNOdIqIBirL3rhrBIL5nBcJ9Oi4MqSospuW20ge9yseH4A1Ibr8tYwTe4azjFe-nMpfL0js7qbawz4Tys4cGqBc-ChJ6DkCFJD-zXSKGc3G1mh81v98cTK34bCImKus07iI-b3JIpAPTS2KGci1LvTkqi4bBzJH3EaNaZ_axiBtHjgAtL3EnEQfCznazxZQTBIQ_t8cyLEEb_hJXV2egG_IzkUWBU9BuYpQM4h-ltn6xguZ8o1kXki7HtCCoZ1QCuAou67BEJdsqo1L4WJT7-we9nU55NyEZKZNtkZzj2NEKh1o1PjJqARg';
-
         if ($cookiesToken) {
             $this->log('Token from Cookies', ['value' => $cookiesToken]);
         }
@@ -838,11 +836,11 @@ class TopcoderPlugin extends Gdn_Plugin {
      * Generate machine to machine token from Auth0
      * @return null|String m2m token
      */
-    public static function getM2MToken()  {
-        //TODO: remove hard-coded value
-        $TOPCODER_AUTH0_CLIENT_ID = 'WtU9RZotPo8neafEZk2rSp7fHntaPNU4'; // c('Plugins.Topcoder.M2M.Auth0ClientId');
-        $TOPCODER_AUTH0_CLIENT_SECRET = 'ZCXOxBCW85W1Pk7wJMtDIt3nCXtz0u_EXQy5lp9LIiXUFVhkAfta6p1V2P9OWEiu';// c('Plugins.Topcoder.M2M.Auth0ClientSecret');
-        $TOPCODER_AUTH0_AUDIENCE = 'https://m2m.topcoder-dev.com/';// c('Plugins.Topcoder.M2M.Auth0Audience');
+    public static function getM2MToken()
+    {
+        $TOPCODER_AUTH0_CLIENT_ID = c('Plugins.Topcoder.M2M.Auth0ClientId');
+        $TOPCODER_AUTH0_CLIENT_SECRET = c('Plugins.Topcoder.M2M.Auth0ClientSecret');
+        $TOPCODER_AUTH0_AUDIENCE = c('Plugins.Topcoder.M2M.Auth0Audience');
         $TOPCODER_AUTH0_URL =  c('Plugins.Topcoder.M2M.Auth0Url');
         $TOPCODER_AUTH0_PROXY_SERVER_URL =  c('Plugins.Topcoder.M2M.Auth0ProxyServerUrl');
 
