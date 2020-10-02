@@ -24,6 +24,7 @@ use Kodus\Cache\FileCache;
 use Auth0\SDK\Auth0;
 use Lcobucci\JWT\Parser;
 use Lcobucci\JWT\Token;
+use Vanilla\Utility\ModelUtils;
 
 
 class TopcoderPlugin extends Gdn_Plugin {
@@ -59,12 +60,15 @@ class TopcoderPlugin extends Gdn_Plugin {
             $provider['AuthenticationSchemeAlias'] = 'topcoder';
             $provider['SignInUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignInUrl');
             $provider['SignOutUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl');
+            $provider['RegisterUrl'] = c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl');
             $provider['Active'] = 1;
             $provider['Default'] = 1;
             $model->save($provider);
         }else {
             $model->update(['SignInUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignInUrl'),
-                'SignOutUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl')], ['AuthenticationKey' => 'topcoder']);
+                'SignOutUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl'),
+                 'RegisterUrl' => c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl')
+                ], ['AuthenticationKey' => 'topcoder']);
         }
 
         $this->initCache();
@@ -121,12 +125,14 @@ class TopcoderPlugin extends Gdn_Plugin {
             if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
                 $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateRequired', t('You must provide SignIn URL.'));
                 $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateRequired', t('You must provide SignOut URL.'));
+                $cf->form()->validateRule('AuthenticationProvider.RegisterUrl', 'ValidateRequired', t('You must provide Register URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateRequired', t('You must provide Refresh Token URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim for HS256 JWT.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim for RS256 JWT.'));
                 $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateUrl','You must provide valid SignIn URL.');
                 $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateUrl','You must provide valid SignOut URL.');
+                $cf->form()->validateRule('AuthenticationProvider.RegisterUrl', 'ValidateUrl','You must provide valid Register URL.');
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateUrl','You must provide valid Refresh Token URL.');
             }
         }
@@ -141,6 +147,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
             'AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
             'AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
+            'AuthenticationProvider.RegisterUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder RegisterURL'],
             'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for HS256 JWT'],
@@ -237,10 +244,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $this->log('Using Token', ['value' => $accessToken]);
         } else {
             $this->log('Token wasn\'t found', []);
-            $this->fireEvent('BadSignIn', [
-                'jwt' =>  $accessToken,
-                'ErrorCode' => 'TokenNotFound'
-            ]);
+            $this->fireEvent('GuestSignIn', []);
             return;
         }
 
@@ -355,26 +359,57 @@ class TopcoderPlugin extends Gdn_Plugin {
             if ($topcoderUserName) {
                 $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
 
-                $userModel = Gdn::userModel();
+                $userModel = new UserModel();
                 $user = $userModel->getByUsername($topcoderUserName);
+                $userID = null;
                 if ($user) {
                     $userID = val('UserID', $user);
                     $this->log('Found Vanilla User:', ['Vanilla UserID' => $userID]);
-                    if ($userID) {
-                        Gdn::session()->start($userID, true);
-                        $userModel->fireEvent('AfterSignIn');
-                        $session = Gdn::session();
-                        if (!$session->isValid()) {
-                            throw new ClientException('The session could not be started.', 401);
-                        }
-                    }
                 } else {
                     $this->log('Vanilla User was not found', []);
-                    $this->fireEvent('BadSignIn', [
-                        'jwt' =>  $accessToken,
-                        'ErrorCode' => 'VanillaUserNotFound',
-                    ]);
-                    return;
+                    if($decodedToken->hasClaim('email')) {
+                        $email = $decodedToken->getClaim('email');
+                        $userData = [
+                            "Email" => $email,
+                            "EmailConfirmed" => true,
+                            "Name" => $topcoderUserName,
+                            "Password" => $this->getRandomString(),
+                            "Photo" => null,
+                            "SaveRoles" => RoleModel::getDefaultRoles(RoleModel::TYPE_MEMBER)];
+
+                        $settings = [
+                            'NoConfirmEmail' => true,
+                            'SaveRoles' => array_key_exists('RoleID', $userData),
+                            'ValidateName' => false
+                        ];
+                        $userID = $userModel->save($userData, $settings);
+                        try {
+                            ModelUtils::validationResultToValidationException($userModel, Gdn::locale(), true);
+                            $this->log('Vanilla User was added', ['UserID' => $userID]);
+                        } catch (\Garden\Schema\ValidationException $e) {
+                            $this->log('Couldn\'t add a new user',['Topcoder Username' => $topcoderUserName, 'error' => $e->getMessage()]);
+                            Logger::event(
+                                'sso_logging',
+                                Logger::ERROR,
+                                'Couldn\'t add a new user',
+                                ['Topcoder Username' => $topcoderUserName, 'error' => $e->getMessage()]
+                            );
+                        }
+                        if($userID === false) {
+                            $this->fireEvent('GuestSignIn', []);
+                            return;
+                        }
+                    }
+
+                }
+
+                if ($userID) {
+                    Gdn::session()->start($userID, true);
+                    $userModel->fireEvent('AfterSignIn');
+                    $session = Gdn::session();
+                    if (!$session->isValid()) {
+                        throw new ClientException('The session could not be started.', 401);
+                    }
                 }
             }
         }
@@ -387,16 +422,48 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
     }
 
+    /**
+     * Missing tokens
+     * @param $sender
+     * @param $args
+     */
+    public function base_guestSignIn_handler($sender, $args) {
+        $this->startSessionAsGuest($sender, $args);
+    }
+
+    /**
+     * Handle any token issues
+     * @param $sender
+     * @param $args
+     */
     public function base_badSignIn_handler($sender, $args) {
-        $this->log('base_badSignIn_handler:', ['args' => $args ]);
+        $this->startSessionAsGuest($sender, $args);
+    }
+
+    /**
+     * Start a new session as Guest
+     * @param $sender
+     * @param $args
+     */
+    private function startSessionAsGuest($sender, $args) {
         try {
-            Gdn::session()->end();
+            if (isset($_COOKIE['Vanilla'])) {
+                unset($_COOKIE['Vanilla']);
+                setcookie('Vanilla', null, -1, '/');
+            }
+            if (Gdn::session()->isValid()) {
+                Gdn::session()->end();
+
+            }
+
         } catch  (\Exception $e) {
             $this->log('Ending session', ['Error' => $e.getMessage]);
         }
 
-        //$url = Gdn::router()->getDestination('DefaultController');
-        redirectTo(url('/entry/topcoder').'/?errorCode='.$args['ErrorCode'].'&action=signin');
+        // Start the 'session' as Guests
+        if (!Gdn::session()->isValid()) {
+            Gdn::session()->start(false, false);
+        }
 
     }
 
@@ -409,17 +476,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             $sender->render('index', 'entry', 'plugins/topcoder');
         } else {
             redirectTo('/entry/signin?Target=discussions', 302);
-        }
-    }
-
-    public function log($message, $data) {
-        if (c('Vanilla.SSO.Debug')) {
-            Logger::event(
-                'sso_logging',
-                Logger::INFO,
-                $message,
-                $data
-            );
         }
     }
 
@@ -547,6 +603,22 @@ class TopcoderPlugin extends Gdn_Plugin {
             'document.body.appendChild(ifrm);}'.
             'window.onload = prepareFrame;</script>';
         return $jsString;
+    }
+
+    /**
+     * Generated a random string
+     * @param int $length
+     * @return string
+     */
+    private function getRandomString($length = 8) {
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $string = '';
+
+        for ($i = 0; $i < $length; $i++) {
+            $string .= $characters[mt_rand(0, strlen($characters) - 1)];
+        }
+
+        return $string;
     }
 
     /** ------------------- Export Data Related Methods --------------------- */
@@ -1062,6 +1134,17 @@ class TopcoderPlugin extends Gdn_Plugin {
             return $photoUrl === null? UserModel::getDefaultAvatarUrl(): $photoUrl;
         }
         return UserModel::getDefaultAvatarUrl();
+    }
+
+    public function log($message, $data) {
+        if (c('Vanilla.SSO.Debug')) {
+            Logger::event(
+                'sso_logging',
+                Logger::INFO,
+                $message,
+                $data
+            );
+        }
     }
 }
 
