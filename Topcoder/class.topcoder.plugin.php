@@ -379,7 +379,6 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                         $settings = [
                             'NoConfirmEmail' => true,
-                            'SaveRoles' => array_key_exists('RoleID', $userData),
                             'ValidateName' => false
                         ];
                         $userID = $userModel->save($userData, $settings);
