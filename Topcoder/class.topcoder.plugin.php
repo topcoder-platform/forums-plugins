@@ -83,15 +83,15 @@ class TopcoderPlugin extends Gdn_Plugin {
     private function initCache() {
         $JWKS_PATH_CACHE = PATH_ROOT. "/jwks";
         if (!file_exists($JWKS_PATH_CACHE)) {
-           if(!mkdir($JWKS_PATH_CACHE, 0777)) {
-               Logger::event(
-                   'topcoder_plugin_logging',
-                   Logger::ERROR,
-                   'Couldn\'t create a cache directory',
-                   ['Directory' => $JWKS_PATH_CACHE]
-               );
-               return;
-           }
+            if(!mkdir($JWKS_PATH_CACHE, 0777)) {
+                Logger::event(
+                    'topcoder_plugin_logging',
+                    Logger::ERROR,
+                    'Couldn\'t create a cache directory',
+                    ['Directory' => $JWKS_PATH_CACHE]
+                );
+                return;
+            }
         }
 
         if(isWritable($JWKS_PATH_CACHE)) {
@@ -115,6 +115,8 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cf->form()->validateRule('Plugins.Topcoder.BaseApiURL', 'ValidateRequired', t('You must provide Base API URL.'));
             $cf->form()->validateRule('Plugins.Topcoder.MemberApiURI', 'ValidateRequired', t('You must provide MemberAPI URI.'));
             $cf->form()->validateRule('Plugins.Topcoder.RoleApiURI', 'ValidateRequired', t('You must provide Role API URI.'));
+            $cf->form()->validateRule('Plugins.Topcoder.ResourceRolesApiURI', 'ValidateRequired', t('You must provide Resource Roles API URI.'));
+            $cf->form()->validateRule('Plugins.Topcoder.ResourcesApiURI', 'ValidateRequired', t('You must provide Resources API URI.'));
             $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
             if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
                 $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateRequired', t('You must provide SignIn URL.'));
@@ -133,6 +135,8 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.BaseApiURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'TopCoder Base API URL'],
             'Plugins.Topcoder.MemberApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member API URI'],
             'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Role API URI'],
+            'Plugins.Topcoder.ResourceRolesApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Resource Roles API URI'],
+            'Plugins.Topcoder.ResourcesApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Resources API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member Profile URL'],
             'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
             'AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
@@ -407,6 +411,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             redirectTo('/entry/signin?Target=discussions', 302);
         }
     }
+
     public function log($message, $data) {
         if (c('Vanilla.SSO.Debug')) {
             Logger::event(
@@ -512,6 +517,20 @@ class TopcoderPlugin extends Gdn_Plugin {
     public function base_render_before($sender) {
         if (is_object($sender->Head)) {
             $sender->Head->addString($this->getJS());
+        }
+
+        if($sender instanceof DiscussionController || $sender instanceof GroupController) {
+            if($sender->data('Group')) {
+                $Group = $sender->data('Group');
+                $challengeID = $Group->ChallengeID;
+                if($challengeID) {
+                    $resources = $this->getChallengeResources($challengeID);
+                    $roleResources = $this->getRoleResources();
+                    $sender->setData('Resources', $resources);
+                    $sender->setData('RoleResources', $roleResources);
+
+                }
+            }
         }
     }
 
@@ -859,6 +878,60 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Get a list of Topcoder Resource roles
+     * @return mixed|null
+     */
+    public function getRoleResources() {
+        $token = TopcoderPlugin::getM2MToken();
+        if ($token) {
+            $resourceRolesURI = c('Plugins.Topcoder.ResourceRolesApiURI');
+            $topcoderRolesApiUrl = c('Plugins.Topcoder.BaseApiURL') . $resourceRolesURI;
+            $options = array('http' => array(
+                'method' => 'GET',
+                'header' => 'Authorization: Bearer ' .$token
+            ));
+            $context = stream_context_create($options);
+            $resourceData = file_get_contents($topcoderRolesApiUrl , false, $context);
+            if ($resourceData === false) {
+                // Handle errors (e.g. 404 and others)
+                logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getRoleResources',
+                    "Couldn't get Topcoder Role Resources".json_encode($http_response_header));
+                return null;
+            }
+
+            return json_decode($resourceData);
+        }
+        return null;
+    }
+
+    /**
+     * Get Topcoder Challenge Resources
+     * @param $challengeId
+     * @return mixed|null
+     */
+    public function getChallengeResources($challengeId) {
+        $token = TopcoderPlugin::getM2MToken();
+        if ($token) {
+            $resourcesURI = c('Plugins.Topcoder.ResourcesApiURI');
+            $topcoderRolesApiUrl = c('Plugins.Topcoder.BaseApiURL') . $resourcesURI;
+            $options = array('http' => array(
+                'method' => 'GET',
+                'header' => 'Authorization: Bearer ' .$token
+            ));
+            $context = stream_context_create($options);
+            $resourceData = file_get_contents($topcoderRolesApiUrl . '?challengeId=' . $challengeId, false, $context);
+            if ($resourceData === false) {
+                // Handle errors (e.g. 404 and others)
+                logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getChallengeResources', "Couldn't get Topcoder challenge resources".json_encode($http_response_header));
+                return null;
+            }
+
+            return json_decode($resourceData);
+        }
+        return null;
+    }
+
+    /**
      * Get a Topcoder Roles
      *
      * @param $name Topcoder Handle
@@ -866,7 +939,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      *  {
      *       "id":"3",
      *       "modifiedBy":null,
-     *      "modifiedAt":null,
+     *       "modifiedAt":null,
      *       "createdBy":null,
      *       "createdAt":null,
      *       "roleName":"Connect Support"
@@ -1123,6 +1196,11 @@ if (!function_exists('userPhoto')) {
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
         $href = (val('NoLink', $options)) ? '' : ' href="'.url($userLink).'"';
 
+        Gdn::controller()->EventArguments['User'] = $user;
+        Gdn::controller()->EventArguments['Title'] =& $title;
+        Gdn::controller()->EventArguments['Attributes'] =& $attributes;
+        Gdn::controller()->fireEvent('UserPhoto');
+
         return '<a title="'.$title.'"'.$href.attribute($attributes).'>'
             .img($photoUrl, ['alt' => $name, 'class' => $imgClass])
             .'</a>';
@@ -1216,6 +1294,12 @@ if (!function_exists('userAnchor')) {
         if($isTopcoderAdmin) {
             $attributes['class'] = $attributes['class'].' '. 'topcoderAdmin' ;
         }
+
+        Gdn::controller()->EventArguments['User'] = $user;
+        Gdn::controller()->EventArguments['Text'] =& $text;
+        Gdn::controller()->EventArguments['Attributes'] =& $attributes;
+        Gdn::controller()->fireEvent('UserAnchor');
+
         return '<a href="'.htmlspecialchars(url($userUrl)).'"'.attribute($attributes).'>'.$text.'</a>';
     }
 }
