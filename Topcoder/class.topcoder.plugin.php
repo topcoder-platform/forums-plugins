@@ -504,6 +504,10 @@ class TopcoderPlugin extends Gdn_Plugin {
      */
 
     private function defineRole($values) {
+        if(strlen($values['Name']) == 0) {
+            return;
+        }
+
         $roleModel = new RoleModel();
 
         // Check to see if there is a role with the same name and type.
