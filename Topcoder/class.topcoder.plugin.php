@@ -29,6 +29,7 @@ use Vanilla\Utility\ModelUtils;
 
 class TopcoderPlugin extends Gdn_Plugin {
 
+    const ROLE_TYPE_TOPCODER = 'topcoder';
     const DEFAULT_EXPIRATION = 86400;
     private $providerKey;
     private $provider;
@@ -48,11 +49,25 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Database updates.
+     */
+    public function structure() {
+        include __DIR__.'/structure.php';
+    }
+
+    /**
      * Run once on enable.
      *
      * @throws Gdn_UserException
      */
     public function setup() {
+        // Initial data hasn't been inserted
+        if(!c('Garden.Installed')) {
+            return;
+        }
+
+        $this->structure();
+
         $model = new Gdn_AuthenticationProviderModel();
         $provider = $model->getID('topcoder');
         if(!$provider) {
@@ -70,6 +85,8 @@ class TopcoderPlugin extends Gdn_Plugin {
                  'RegisterUrl' => c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl')
                 ], ['AuthenticationKey' => 'topcoder']);
         }
+
+        $this->initDefaultTopcoderRoles();
 
         $this->initCache();
 
@@ -101,6 +118,28 @@ class TopcoderPlugin extends Gdn_Plugin {
         if(isWritable($JWKS_PATH_CACHE)) {
             $this->cacheHandler = new FileCache($JWKS_PATH_CACHE, self::DEFAULT_EXPIRATION);
         }
+    }
+
+    /**
+     * Init all default Topcoder roles and set up permissions
+     */
+    private function initDefaultTopcoderRoles() {
+        $defaultTopcoderRoles = TopcoderPlugin::getAllTopcoderRoles();
+        $roleNames = array_column($defaultTopcoderRoles, 'roleName');
+        $this->checkTopcoderRoles($roleNames);
+
+        $permissionModel = Gdn::permissionModel();
+        $permissionModel->save( [
+          'Role' => 'Member',
+          'Garden.Uploads.Add' => 0
+        ]);
+
+        $permissionModel->save([
+           'Role' => 'copilot',
+           'Garden.Uploads.Add' => 1
+        ]);
+
+        $permissionModel->clearPermissions();
     }
 
     /**
@@ -355,6 +394,10 @@ class TopcoderPlugin extends Gdn_Plugin {
                 return;
             }
 
+            $topcoderRoles = $this->getRolesClaim($decodedToken);
+
+            $this->checkTopcoderRoles($topcoderRoles);
+
             $topcoderUserName = $decodedToken->getClaim($USERNAME_CLAIM);
             if ($topcoderUserName) {
                 $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
@@ -375,13 +418,20 @@ class TopcoderPlugin extends Gdn_Plugin {
                             "Name" => $topcoderUserName,
                             "Password" => $this->getRandomString(),
                             "Photo" => null,
-                            "SaveRoles" => RoleModel::getDefaultRoles(RoleModel::TYPE_MEMBER)];
+                        ];
 
                         $settings = [
                             'NoConfirmEmail' => true,
                             'ValidateName' => false
                         ];
                         $userID = $userModel->save($userData, $settings);
+
+                        $roles  = RoleModel::getByName($topcoderRoles);
+                        // Add all Topcoder roles from a payload and Vanilla member
+                        // User must have at least one role with the 'SignIn.Allow' permission to sign in
+                        $roleIDs = array_merge(array_keys($roles), [8]);
+                        $userModel->saveRoles($userID, $roleIDs, false);
+
                         try {
                             ModelUtils::validationResultToValidationException($userModel, Gdn::locale(), true);
                             $this->log('Vanilla User was added', ['UserID' => $userID]);
@@ -403,6 +453,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
 
                 if ($userID) {
+                    $this->syncTopcoderRoles($userID,$topcoderRoles);
                     Gdn::session()->start($userID, true);
                     $userModel->fireEvent('AfterSignIn');
                     $session = Gdn::session();
@@ -412,6 +463,129 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
         }
+    }
+
+    /**
+     * Get a role claim
+     * @param $decodedToken
+     * @return array
+     */
+    private function getRolesClaim($decodedToken) {
+        $claims = $decodedToken->getClaims();
+        $keys = array_keys($claims);
+        foreach ($keys as $key) {
+            if(stringEndsWith($key, '/roles',false)) {
+                return $decodedToken->getClaim($key);
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Check if a role exists in Vanilla. if a role doesn't exist to add it
+     * @param $roles array of role names
+     */
+    private function checkTopcoderRoles($roles) {
+
+        $roleModel = new RoleModel();
+        $topcoderRoles = $roleModel->getByType(TopcoderPlugin::ROLE_TYPE_TOPCODER)->resultArray();
+        $existingRoles = array_column($topcoderRoles, 'Name');
+        $missingRoles = array_diff($roles, $existingRoles);
+
+        foreach ($missingRoles as $newRole) {
+            $this->defineRole(['Name' => $newRole, 'Type' => self::ROLE_TYPE_TOPCODER,  'Deletable' => '1',
+                'CanSession' => '1', 'Description' => t($newRole.' Description', 'Added by Topcoder plugin')]);
+        }
+    }
+
+    /**
+     * Create a new role
+     * @param $values
+     */
+
+    private function defineRole($values) {
+        if(strlen($values['Name']) == 0) {
+            return;
+        }
+
+        $roleModel = new RoleModel();
+
+        // Check to see if there is a role with the same name and type.
+        $roleID = $roleModel->SQL->getWhere('Role', ['Name' => $values['Name'], 'Type' => $values['Type']])->value('RoleID', null);
+
+        if (is_null($roleID)) {
+            // Figure out the next role ID.
+            $maxRoleID = $roleModel->SQL->select('r.RoleID', 'MAX')->from('Role r')->get()->value('RoleID', 0);
+            $roleID = $maxRoleID + 1;
+            $values['RoleID'] = $roleID;
+
+            // Insert the role.
+            $roleModel->SQL->insert('Role', $values);
+        }
+
+        $roleModel->clearCache();
+    }
+
+    /**
+     * Sync a list of Topcoder roles for an user
+     * @param $userID
+     * @param $roles array a list of role names
+     *
+     */
+    private function syncTopcoderRoles($userID, $roles) {
+        $userModel = new UserModel();
+        $newRoles  = TopcoderPlugin::getRoles($roles, TopcoderPlugin::ROLE_TYPE_TOPCODER);
+        $newRoleIDs = array_keys($newRoles);
+
+        $currentRoles = $userModel->getRoles($userID)->resultArray();
+        $prevVanillaRoleIDs = array_column($currentRoles, 'RoleID');
+
+        $vanillaRoles = array_filter($currentRoles, function($o) {
+            return $o['Type'] != TopcoderPlugin::ROLE_TYPE_TOPCODER;
+        });
+        $currentVanillaRoleIDs = array_column($vanillaRoles, 'RoleID');
+        $mergedRoleIDs = array_unique(array_merge($newRoleIDs, $currentVanillaRoleIDs));
+        $result = array_diff($mergedRoleIDs,$prevVanillaRoleIDs);
+
+        // Update roleIDs if there are any changes only
+        if(count($result) > 0) {
+            $userModel->saveRoles($userID, $mergedRoleIDs, false);
+        }
+    }
+
+    /**
+     * Get a role by name and type.
+     *
+     * @param array|string $names
+     * @param $type string a role type
+     * @param null $missing a list of missing roles
+     * @return array
+     */
+    public static function getRoles($names, $type, &$missing = null) {
+        if (is_string($names)) {
+            $names = explode(',', $names);
+            $names = array_map('trim', $names);
+        }
+
+        // Make a lookup array of the names.
+        $names = array_unique($names);
+        $names = array_combine($names, $names);
+        $names = array_change_key_case($names);
+
+        $roles = RoleModel::roles();
+        $result = [];
+        foreach ($roles as $roleID => $role) {
+            $name = strtolower($role['Name']);
+
+            if (isset($names[$name]) && $type == $role['Type']) {
+                $result[$roleID] = $role;
+                unset($names[$name]);
+            }
+        }
+
+        $missing = array_values($names);
+
+        return $result;
     }
 
     public function base_afterSignIn_handler($sender, $args) {
@@ -1040,6 +1214,44 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
         }
+        return null;
+    }
+
+    /**
+     * Get all Topcoder Roles
+     *
+     * @return null|string  array of role objects. Example of role object:
+     *  {
+     *       "id":"3",
+     *       "modifiedBy":null,
+     *       "modifiedAt":null,
+     *       "createdBy":null,
+     *       "createdAt":null,
+     *       "roleName":"Connect Support"
+     *   }
+     */
+    public static function getAllTopcoderRoles() {
+        $token = TopcoderPlugin::getM2MToken();
+        if ($token) {
+            $topcoderRolesApiUrl = c('Plugins.Topcoder.BaseApiURL') . c('Plugins.Topcoder.RoleApiURI');
+            $options = array('http' => array(
+                'method' => 'GET',
+                'header' => 'Authorization: Bearer ' .$token
+            ));
+            $context = stream_context_create($options);
+            $rolesData = file_get_contents($topcoderRolesApiUrl, false, $context);
+            if ($rolesData === false) {
+                // Handle errors (e.g. 404 and others)
+                logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getAllTopcoderRoles', "Couldn't get all Topcoder roles".json_encode($http_response_header));
+                return null;
+            }
+
+            $rolesResponse = json_decode($rolesData);
+            if ($rolesResponse->result->status === 200 && $rolesResponse->result->content !== null) {
+                return $rolesResponse->result->content;
+            }
+        }
+
         return null;
     }
 
