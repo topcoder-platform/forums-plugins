@@ -130,6 +130,16 @@ class TopcoderPlugin extends Gdn_Plugin {
 
         $permissionModel = Gdn::permissionModel();
         $permissionModel->save( [
+           'Role' => 'Guest',
+           'JunctionTable' => 'Category',
+           'JunctionColumn' => 'PermissionCategoryID',
+           'JunctionID' => -1,
+           'Vanilla.Discussions.View' => 0,
+           'Vanilla.Discussions.Add' => 0,
+           'Vanilla.Comments.Add' => 0
+        ]);
+
+        $permissionModel->save( [
           'Role' => 'Member',
           'Garden.Uploads.Add' => 0
         ]);
@@ -760,6 +770,19 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                 }
             }
+        }
+    }
+
+    /**
+     * Add a topcoder role type in Dashboard
+     * @param $sender
+     * @param $args
+     */
+    public function roleController_render_before($sender, $args) {
+        $types = $sender->data('_Types');
+        if($types) {
+            $types['topcoder'] = self::ROLE_TYPE_TOPCODER;
+            $sender->SetData('_Types', $types);
         }
     }
 
