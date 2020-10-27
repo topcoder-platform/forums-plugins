@@ -1616,7 +1616,7 @@ if (!function_exists('userAnchor')) {
         $userUrl = topcoderUserUrl($user, $px);
 
         $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
-        if($topcoderRating != false) {
+        if($topcoderRating != false || $topcoderRating == null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
             $attributes['class'] = $attributes['class'].' '.$coderStyles ;
         }
