@@ -1,17 +1,17 @@
-.coderTextRed, .coderTextYellow, .coderTextBlue, .coderTextGreen, .coderTextGray, .coderTextOrange, .topcoderAdmin {
+.coderTextRed, .coderTextYellow, .coderTextBlue, .coderTextGreen, .coderTextGray, .coderTextOrange, .coderTextPurple, .topcoderAdmin {
     font-weight: bold;
     background-color: transparent;
 }
-.coderTextRed:link, .coderTextYellow:link, .coderTextBlue:link, .coderTextGreen:link, .coderTextGray:link, .coderTextOrange:link, .coderTextWhite:link, .coderTextBlack:link , .topcoderAdmin:link {
+.coderTextRed:link, .coderTextYellow:link, .coderTextBlue:link, .coderTextGreen:link, .coderTextGray:link, .coderTextOrange:link, .coderTextWhite:link, .coderTextBlack:link , .coderTextPurple:link, .topcoderAdmin:link {
     text-decoration: none;
 }
-.coderTextRed:visited, .coderTextYellow:visited, .coderTextBlue:visited, .coderTextGreen:visited, .coderTextGray:visited, .coderTextOrange:visited, .coderTextWhite:visited, .coderTextBlack:visited, .topcoderAdmin:visited {
+.coderTextRed:visited, .coderTextYellow:visited, .coderTextBlue:visited, .coderTextGreen:visited, .coderTextGray:visited, .coderTextOrange:visited, .coderTextWhite:visited, .coderTextBlack:visited, .coderTextPurple:visited, .topcoderAdmin:visited {
     text-decoration: none;
 }
-a.coderTextRed:hover, a.coderTextYellow:hover, a.coderTextBlue:hover, a.coderTextGreen:hover, a.coderTextGray:hover, a.coderTextOrange:hover, a.coderTextWhite:hover, a.coderTextBlack:hover, a.topcoderAdmin:hover {
+a.coderTextRed:hover, a.coderTextYellow:hover, a.coderTextBlue:hover, a.coderTextGreen:hover, a.coderTextGray:hover, a.coderTextOrange:hover, a.coderTextWhite:hover, a.coderTextBlack:hover, a.coderTextPurple:hover, a.topcoderAdmin:hover {
     text-decoration: underline;
 }
-.coderTextRed:active, .coderTextYellow:active, .coderTextBlue:active, .coderTextGreen:active, .coderTextGray:active, .coderTextOrange:active, .coderTextWhite:active, .coderTextBlack:active, a.topcoderAdmin:active {
+.coderTextRed:active, .coderTextYellow:active, .coderTextBlue:active, .coderTextGreen:active, .coderTextGray:active, .coderTextOrange:active, .coderTextWhite:active, .coderTextBlack:active, .coderTextPurple:active, a.topcoderAdmin:active {
     text-decoration: underline;
 }
 
@@ -28,26 +28,29 @@ a.coderTextRed:hover, a.coderTextYellow:hover, a.coderTextBlue:hover, a.coderTex
 /* Gray */
 .coderTextGray, .coderTextGray:link, .coderTextGray:visited, .coderTextGray:hover, .coderTextGray:active { color: #999999; }
 /* White */
-.coderTextWhite, .coderTextWhite:link, .coderTextWhite:visited, .coderTextWhite:hover, .coderTextWhite:active {  color: #FFFFFF; }
+.coderTextWhite, .coderTextWhite:link, .coderTextWhite:visited, .coderTextWhite:hover, .coderTextWhite:active {  color: #ffffff; }
 /* Black */
 .coderTextBlack, .coderTextBlack:link, .coderTextBlack:visited, .coderTextBlack:hover, .coderTextBlack:active { color: #000000; }
+/* Purple, no rating */
+.coderTextPurple, .coderTextPurple:link, .coderTextPurple:visited, .coderTextPurple:hover, .coderTextPurple:active { color: #7a21b5; }
+
 /* Topcoder Admin */
 .topcoderAdmin, .topcoderAdmin:link, .topcoderAdmin:visited, .topcoderAdmin:hover, .topcoderAdmin:active { color: #ff5100; }
 
-.coderTextRed, .coderTextYellow, .coderTextBlue, .coderTextGreen, .coderTextGray, .coderTextOrange, .topcoderAdmin {
+.coderTextRed, .coderTextYellow, .coderTextBlue, .coderTextGreen, .coderTextGray, .coderTextOrange, .coderTextPurple, .topcoderAdmin {
     font-weight: bold !important;
     background-color: transparent !important;
 }
-.coderTextRed:link, .coderTextYellow:link, .coderTextBlue:link, .coderTextGreen:link, .coderTextGray:link, .coderTextOrange:link, .coderTextWhite:link, .coderTextBlack:link, .topcoderAdmin:link {
+.coderTextRed:link, .coderTextYellow:link, .coderTextBlue:link, .coderTextGreen:link, .coderTextGray:link, .coderTextOrange:link, .coderTextWhite:link, .coderTextBlack:link, .coderTextPurple:link, .topcoderAdmin:link {
     text-decoration: none !important;
 }
-.coderTextRed:visited, .coderTextYellow:visited, .coderTextBlue:visited, .coderTextGreen:visited, .coderTextGray:visited, .coderTextOrange:visited, .coderTextWhite:visited, .coderTextBlack:visited, .topcoderAdmin:visited {
+.coderTextRed:visited, .coderTextYellow:visited, .coderTextBlue:visited, .coderTextGreen:visited, .coderTextGray:visited, .coderTextOrange:visited, .coderTextWhite:visited, .coderTextBlack:visited, .coderTextPurple:visited, .topcoderAdmin:visited {
     text-decoration: none !important;
 }
-.coderTextRed:hover, .coderTextYellow:hover, .coderTextBlue:hover, .coderTextGreen:hover, .coderTextGray:hover, .coderTextOrange:hover, .coderTextWhite:hover, .coderTextBlack:hover, .topcoderAdmin:hover {
+.coderTextRed:hover, .coderTextYellow:hover, .coderTextBlue:hover, .coderTextGreen:hover, .coderTextGray:hover, .coderTextOrange:hover, .coderTextWhite:hover, .coderTextBlack:hover, .coderTextPurple:hover, .topcoderAdmin:hover {
     text-decoration: underline !important;
 }
-.coderTextRed:active, .coderTextYellow:active, .coderTextBlue:active, .coderTextGreen:active, .coderTextGray:active, .coderTextOrange:active, .coderTextWhite:active, .coderTextBlack:active, .topcoderAdmin:active {
+.coderTextRed:active, .coderTextYellow:active, .coderTextBlue:active, .coderTextGreen:active, .coderTextGray:active, .coderTextOrange:active, .coderTextWhite:active, .coderTextBlack:active, .coderTextPurple:active, .topcoderAdmin:active {
     text-decoration: underline !important;
 }
 
@@ -67,6 +70,30 @@ a.coderTextRed:hover, a.coderTextYellow:hover, a.coderTextBlue:hover, a.coderTex
 .coderTextWhite, .coderTextWhite:link, .coderTextWhite:visited, .coderTextWhite:hover, .coderTextWhite:active {  color: #FFFFFF !important; }
 /* Black */
 .coderTextBlack, .coderTextBlack:link, .coderTextBlack:visited, .coderTextBlack:hover, .coderTextBlack:active { color: #000000 !important; }
+/* Purple, no rating */
+.coderTextPurple, .coderTextPurple:link, .coderTextPurple:visited, .coderTextPurple:hover, .coderTextPurple:active { color: #7a21b5; !important; }
 
 /* Topcoder Admin */
 .topcoderAdmin, .topcoderAdmin:link, .topcoderAdmin:visited, .topcoderAdmin:hover, .topcoderAdmin:active { color: #ff5100 !important;  }
+
+/* Orange */
+.userContent p a.coderTextOrange, .userContent p a.coderTextOrange:link, .userContent p a.coderTextOrange:hover, .userContent p a.coderTextOrange:active, .userContent p a.coderTextOrange:visited { color: #FF9900 !important; }
+/* Red */
+.userContent p a.coderTextRed, .userContent p a.coderTextRed:link, .userContent p a.coderTextRed:hover, .userContent p a.coderTextRed:active, .userContent p a.coderTextRed:visited { color: #EE0000 !important; }
+/* Yellow */
+.userContent p a.coderTextYellow, .userContent p a.coderTextYellow:link, .userContent p a.coderTextYellow:hover, .userContent p a.coderTextYellow:active, .userContent p a.coderTextYellow:visited { color: #DDCC00 !important; }
+/* Blue */
+.userContent p a.coderTextBlue, .userContent p a.coderTextBlue:link, .userContent p a.coderTextBlue:active, .userContent p a.coderTextBlue:hover, .userContent p a.coderTextBlue:visited{ color: #6666FF !important; }
+/* Green */
+.userContent p a.coderTextGreen, .userContent p a.coderTextGreen:link, .userContent p a.coderTextGreen:active, .userContent p a.coderTextGreen:hover, .userContent p a.coderTextGreen:visited { color: #00A900 !important; }
+/* Gray */
+.userContent p a.coderTextGray, .userContent p a.coderTextGray:link, .userContent p a.coderTextGray:active, .userContent p a.coderTextGray:hover, .userContent p a.coderTextGray:visited{ color: #999999 !important; }
+/* White */
+.userContent p a.coderTextWhite, .userContent p a.coderTextWhite:link, .userContent p a.coderTextWhite:active, .userContent p a.coderTextWhite:hover, .userContent p a.coderTextWhite:visited {  color: #FFFFFF !important; }
+/* Black */
+.userContent p a.coderTextBlack, .userContent p a.coderTextBlack:link, .userContent p a.coderTextBlack:active, .userContent p a.coderTextBlack:hover, .userContent p a.coderTextBlack:visited { color: #000000 !important; }
+
+.userContent p a.coderTextPurple, .userContent p a.coderTextPurple:link, .userContent p a.coderTextPurple:active, .userContent p a.coderTextPurple:hover, .userContent p a.coderTextPurple:visited { color: #7a21b5; !important;}
+
+/* Topcoder Admin */
+.userContent p a.topcoderAdmin, .userContent p a.topcoderAdmin:link, .userContent p a.topcoderAdmin:visited, .userContent p a.topcoderAdmin:hover, .userContent p a.topcoderAdmin:active { color: #ff5100 !important;  }
