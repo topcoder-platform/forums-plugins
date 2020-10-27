@@ -126,7 +126,8 @@ a.coderTextRed:hover, a.coderTextYellow:hover, a.coderTextBlue:hover, a.coderTex
 /* Topcoder Admin */
 .MessageList .ItemDiscussion .Username.topcoderAdmin, .MessageList .ItemDiscussion .Username.topcoderAdmin:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.topcoderAdmin,
-.Flyout.Flyout a.topcoderAdmin, .userContent p a.topcoderAdmin, .userContent p a.topcoderAdmin:link, .userContent p a.topcoderAdmin:visited, .userContent p a.topcoderAdmin:hover, .userContent p a.topcoderAdmin:active { color: #ff5100 !important;  }
+.Flyout.Flyout a.topcoderAdmin, .Flyout.Flyout a.topcoderAdmin:link,.Flyout.Flyout a.topcoderAdmin:visited, .Flyout.Flyout a.topcoderAdmin:hover, .Flyout.Flyout a.topcoderAdmin:active,
+.userContent p a.topcoderAdmin, .userContent p a.topcoderAdmin:link, .userContent p a.topcoderAdmin:visited, .userContent p a.topcoderAdmin:hover, .userContent p a.topcoderAdmin:active { color: #ff5100 !important;  }
 
 
 
