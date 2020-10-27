@@ -1228,7 +1228,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 if ($rolesData === false) {
                     // Handle errors (e.g. 404 and others)
                     logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getTopcoderRoles', "Couldn't get Topcoder roles".json_encode($http_response_header));
-                    return null;
+                    return false;
                 }
 
                 $rolesResponse = json_decode($rolesData);
@@ -1237,7 +1237,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
         }
-        return null;
+        return false;
     }
 
     /**
@@ -1321,27 +1321,29 @@ class TopcoderPlugin extends Gdn_Plugin {
         $memberStatsData = @file_get_contents($topcoderMembersApiUrl.'/'.$name.'/stats');
         if($memberStatsData === false) {
             // Handle errors (e.g. 404 and others)
-            return null;
+            return false;
         }
         $memberStatsResponse = json_decode($memberStatsData);
-        if($memberStatsResponse->result->status === 200 && $memberStatsResponse->result->content[0]->maxRating) {
-            return $memberStatsResponse->result->content[0]->maxRating->rating;
+        if($memberStatsResponse->result->status === 200 && $memberStatsResponse->result->content[0]) {
+            return $memberStatsResponse->result->content[0]->maxRating != null ?
+                $memberStatsResponse->result->content[0]->maxRating->rating : null;
         }
 
-        return null;
+        return false;
     }
 
     /**
      * Get css style based on Topcoder Member Rating
-     * @param $rating
+     * @param $rating It might be null
      * @return mixed|string
      */
     public static function getRatingCssClass($rating){
         $cssStyles = array('coderTextOrange', 'coderTextWhite', 'coderTextGray',
-            'coderTextGreen', 'coderTextBlue', 'coderTextYellow', 'coderTextRed');
-
+            'coderTextGreen', 'coderTextBlue', 'coderTextYellow', 'coderTextRed', 'coderTextPurple');
         $cssStyle = '';
-        if ($rating < 0) {
+        if($rating == null) {
+            $cssStyle = $cssStyles[7];
+        } else if ($rating < 0) {
             $cssStyle = $cssStyles[0];
         } else if ($rating == 0) {
             $cssStyle = $cssStyles[1];
@@ -1390,11 +1392,23 @@ if(!function_exists('topcoderRatingCssClass')) {
      */
     function topcoderRatingCssClass($name) {
         $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
-        if ($topcoderRating != null) {
-            $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
-            return $coderStyles;
+        return TopcoderPlugin::getRatingCssClass($topcoderRating);
+    }
+}
+
+if(!function_exists('topcoderRoleCssStyles')) {
+    /**
+     * Take an user name to get role css style .
+     *
+     * @return string Returns role css style
+     */
+    function topcoderRoleCssStyles($name) {
+        $topcoderCssClass = '';
+        $isTopcoderAdmin = TopcoderPlugin::hasTopcoderAdminRole($name);
+        if($isTopcoderAdmin) {
+            $topcoderCssClass = ' '.'topcoderAdmin' ;
         }
-        return '';
+        return $topcoderCssClass;
     }
 }
 
@@ -1602,7 +1616,7 @@ if (!function_exists('userAnchor')) {
         $userUrl = topcoderUserUrl($user, $px);
 
         $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
-        if($topcoderRating != null) {
+        if($topcoderRating != false || $topcoderRating == null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
             $attributes['class'] = $attributes['class'].' '.$coderStyles ;
         }
