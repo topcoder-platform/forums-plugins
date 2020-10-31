@@ -786,6 +786,22 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
     }
 
+    public function categoryController_markRead_create($categoryID, $tKey) {
+        $categoryModel = new CategoryModel();
+        if (Gdn::session()->validateTransientKey($tKey)) {
+            $categoryModel->saveUserTree($categoryID, ['DateMarkedRead' => Gdn_Format::toDateTime()]);
+        }
+
+        // Stay in the previous page
+        if(isset($_SERVER['HTTP_REFERER'])) {
+            $previous = $_SERVER['HTTP_REFERER'];
+            redirectTo($previous);
+        } else {
+            redirectTo('/categories');
+        }
+
+    }
+
     /**
      * Silently Token Refresh Logic for JWT RS256
      * @return string
