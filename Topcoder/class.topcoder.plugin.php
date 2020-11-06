@@ -30,6 +30,10 @@ use Vanilla\Utility\ModelUtils;
 class TopcoderPlugin extends Gdn_Plugin {
 
     const ROLE_TYPE_TOPCODER = 'topcoder';
+    const ROLE_TOPCODER_CONNECT_ADMIN = 'Connect Admin';
+    const ROLE_TOPCODER_COPILOT = 'copilot';
+    const ROLE_TOPCODER_CONNECT_COPILOT = 'Connect Copilot';
+    const ROLE_TOPCODER_CONNECT_MANAGER = 'Connect Manager';
     const DEFAULT_EXPIRATION = 86400;
     private $providerKey;
     private $provider;
@@ -145,10 +149,26 @@ class TopcoderPlugin extends Gdn_Plugin {
         ]);
 
         $permissionModel->save([
-           'Role' => 'copilot',
+           'Role' => self::ROLE_TOPCODER_COPILOT,
            'Garden.Uploads.Add' => 1
         ]);
 
+        $permissionModel->save([
+            'Role' => self::ROLE_TOPCODER_CONNECT_COPILOT,
+            'Garden.Uploads.Add' => 1
+        ]);
+        // TODO: ask which roles should be used
+        /*
+        $permissionModel->save([
+            'Role' => self::ROLE_TOPCODER_CONNECT_MANAGER,
+            'Garden.Uploads.Add' => 1
+        ]);
+
+        $permissionModel->save([
+            'Role' => self::ROLE_TOPCODER_CONNECT_ADMIN,
+            'Garden.Uploads.Add' => 1
+        ]);
+        */
         $permissionModel->clearPermissions();
     }
 
@@ -1354,25 +1374,19 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @return mixed|string
      */
     public static function getRatingCssClass($rating){
-        $cssStyles = array('coderTextOrange', 'coderTextWhite', 'coderTextGray',
-            'coderTextGreen', 'coderTextBlue', 'coderTextYellow', 'coderTextRed', 'coderTextPurple');
         $cssStyle = '';
         if($rating == null) {
-            $cssStyle = $cssStyles[7];
-        } else if ($rating < 0) {
-            $cssStyle = $cssStyles[0];
-        } else if ($rating == 0) {
-            $cssStyle = $cssStyles[1];
-        } else if ($rating > 0 && $rating < 900) {
-            $cssStyle = $cssStyles[2];
+            $cssStyle = 'coderRatingNone';
+        } else if ($rating >= 0 && $rating < 900) {
+            $cssStyle = 'coderRatingGrey';
         } else if ($rating > 899 && $rating < 1200) {
-            $cssStyle = $cssStyles[3];
+            $cssStyle = 'coderRatingGreen';
         } else if ($rating > 1199 && $rating < 1500) {
-            $cssStyle = $cssStyles[4];
+            $cssStyle = 'coderRatingBlue';
         } else if ($rating > 1499 && $rating < 2200) {
-            $cssStyle = $cssStyles[5];
+            $cssStyle = 'coderRatingYellow';
         } else if ($rating > 2199) {
-            $cssStyle = $cssStyles[6];
+            $cssStyle ='coderRatingRed';
         }
 
         return $cssStyle;
