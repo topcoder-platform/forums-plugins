@@ -488,6 +488,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                     $userModel->fireEvent('AfterSignIn');
                     $session = Gdn::session();
                     if (!$session->isValid()) {
+                        $this->log('The session could not be started.', []);
                         throw new ClientException('The session could not be started.', 401);
                     }
                 }
@@ -631,6 +632,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_guestSignIn_handler($sender, $args) {
+        $this->log('base_guestSignIn_handler', []);
         $this->startSessionAsGuest($sender, $args);
     }
 
@@ -640,6 +642,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_badSignIn_handler($sender, $args) {
+        $this->log('base_badSignIn_handler', []);
         $this->startSessionAsGuest($sender, $args);
     }
 
@@ -665,6 +668,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
         // Start the 'session' as Guests
         if (!Gdn::session()->isValid()) {
+            $this->log('Starting a session as guest', []);
             Gdn::session()->start(false, false);
         }
 
@@ -1198,6 +1202,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $resourceData = file_get_contents($topcoderRolesApiUrl , false, $context);
             if ($resourceData === false) {
                 // Handle errors (e.g. 404 and others)
+                $this->log('Couldn\'t get Topcoder Role Resources', ['headers' =>json_encode($http_response_header)]);
                 logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getRoleResources',
                     "Couldn't get Topcoder Role Resources".json_encode($http_response_header));
                 return null;
@@ -1205,6 +1210,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             return json_decode($resourceData);
         }
+        $this->log('Couldn\'t get Topcoder Role Resources: no token', []);
         return null;
     }
 
@@ -1226,12 +1232,14 @@ class TopcoderPlugin extends Gdn_Plugin {
             $resourceData = file_get_contents($topcoderRolesApiUrl . '?challengeId=' . $challengeId, false, $context);
             if ($resourceData === false) {
                 // Handle errors (e.g. 404 and others)
+                $this->log('Couldn\'t get challenge resources: no token', ['headers'=> json_encode($http_response_header)]);
                 logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getChallengeResources', "Couldn't get Topcoder challenge resources".json_encode($http_response_header));
                 return null;
             }
 
             return json_decode($resourceData);
         }
+        $this->log('Couldn\'t get challenge resources: no token', []);
         return null;
     }
 
@@ -1273,6 +1281,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
         }
+
         return false;
     }
 
@@ -1402,15 +1411,27 @@ class TopcoderPlugin extends Gdn_Plugin {
         return UserModel::getDefaultAvatarUrl();
     }
 
+
+    // TODO: Debugging issues-108
+    public function base_beforeNewDiscussionButton_handler($sender, $args) {
+        $newDiscussionModule = $args['NewDiscussionModule'];
+        $this->log('NewDiscussionModule_beforeNewDiscussionButton_handle', [
+            'ShowGuests' => $newDiscussionModule->ShowGuests,
+            'CategoryID' => $newDiscussionModule->CategoryID, 'session.isValid' => Gdn::session()->isValid(),
+            'privilegedGuest' => ($this->ShowGuests && !Gdn::session()->isValid()),
+            'hasPermission' => Gdn::session()->checkPermission('Vanilla.Discussions.Add', true, 'Category', 'any')]);
+    }
+
     public function log($message, $data) {
-        if (c('Vanilla.SSO.Debug')) {
+        // TODO: Debugging issues-108
+        //if (c('Vanilla.SSO.Debug')) {
             Logger::event(
                 'sso_logging',
                 Logger::INFO,
                 $message,
                 $data
             );
-        }
+       // }
     }
 }
 
