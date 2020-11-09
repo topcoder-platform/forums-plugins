@@ -1,0 +1,23 @@
+{
+  "key": "Replyto",
+  "name": "Reply-To Plugin",
+  "description": "This plugin allows a reply to be made to a specific comment, supporting nested comments.",
+  "version": "1.0.0",
+  "documentationUrl": "http://vanilla.topcoder-dev.com",
+  "type": "addon",
+  "priority": "99",
+  "icon": "topcoder-logo.jpeg",
+  "mobileFriendly": true,
+  "hasLocale": false,
+   "settingsPermission": "Garden.Settings.Manage",
+  "authors": [
+    {
+      "name": "Topcoder",
+      "email": "support@topcoder.com",
+      "homepage": "https://topcoder.com"
+    }
+  ],
+  "require": {
+    "vanilla": ">=3.0"
+  }
+}

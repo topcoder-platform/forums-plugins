@@ -1,0 +1,60 @@
+
+.ReplyViewOptions {
+    display: inline-block;
+    line-height: 1.5;
+}
+
+.ReplyViewOptions a.Active {
+    color: #696969;
+    font-weight: 400;
+}
+/* 
+   Indent comments according to their depth. 
+   The CommentForm has a matching negative indent so that it does not
+   get squeezed up with the increasingly indented comments.
+*/
+
+
+li.Item.ReplyToDepth-1  {
+    margin-left: 2em;
+}
+
+li.Item.ReplyToDepth-2  {
+    margin-left: 4em;
+}
+
+li.Item.ReplyToDepth-3  {
+    margin-left: 6em;
+}
+
+li.Item.ReplyToDepth-4  {
+    margin-left: 8em;
+}
+
+li.Item.ReplyToDepth-5  {
+    margin-left: 10em;
+}
+
+/* Reduce the indenting to single ems after 5 levels */
+
+li.Item.ReplyToDepth-6  {
+    margin-left: 11em;
+}
+
+li.Item.ReplyToDepth-7  {
+    margin-left: 12em;
+}
+
+li.Item.ReplyToDepth-8  {
+    margin-left: 13em;
+}
+
+li.Item.ReplyToDepth-9  {
+    margin-left: 14em;
+}
+
+/* Stop indenting any further after 10 levels */
+li.Item.ReplyToDepth-10plus  {
+    margin-left: 15em;
+}
+
