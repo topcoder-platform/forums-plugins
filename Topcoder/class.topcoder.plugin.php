@@ -1500,15 +1500,34 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     }
 
+    // TODO: Debugging issues-108
     public function gdn_dispatcher_beforeDispatch_handler($sender, $args) {
         self::log('gdn_dispatcher_beforeDispatch_handler', [
             'Permissions' => Gdn::session()->getPermissionsArray(),
         ]);
     }
 
+    // TODO: Debugging issues-108
     public function userModel_loadPermissions_handler($sender, $args){
         self::log('userModel_loadPermissions_handler', ['user' => $args['UserID'],
             'loadPermissions' => $args['Permissions']]);
+    }
+
+    // TODO: Debugging search
+    public function searchModel_search_handler($sender, $args){
+        self::log('searchModel_search_handler', ['Search' => $args['Search']]);
+    }
+
+    // TODO: Debugging search
+    public function searchModel_beforeGetSearchQuery_handler($sender, $args){
+        self::log('searchModel_beforeGetSearchQuery_handler', ['Sql' => $args['Sql'],
+            'Parameters' => $args['Parameters']]);
+    }
+
+    // TODO: Debugging search
+    public function searchController_beforeSearchExcerpt_handler($sender, $args){
+        self::log('searchController_beforeSearchExcerpt_handler', ['Record' => $args['Record']
+         ]);
     }
 
     public static function log($message, $data = []) {

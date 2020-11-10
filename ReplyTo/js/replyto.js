@@ -38,6 +38,7 @@ jQuery(document).ready(function($) {
       } else {
          $(cancelReplyButton).show();
       }
+      $(form)[0].scrollIntoView();
       return false;
    });
 

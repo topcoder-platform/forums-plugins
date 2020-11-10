@@ -102,4 +102,8 @@ a.coderRatingRed:hover, a.coderRatingYellow:hover, a.coderRatingBlue:hover, a.co
 .userContent p a.topcoderAdmin, .userContent p a.topcoderAdmin:link, .userContent p a.topcoderAdmin:visited, .userContent p a.topcoderAdmin:hover, .userContent p a.topcoderAdmin:active { color: #ff9900 !important;  }
 
 
-
+/* Search breadcrumbs css style */
+.Media-Location .Breadcrumbs {
+    padding: 0px 0px;
+    text-transform: none;
+}
