@@ -286,7 +286,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         if(!c('Garden.Installed')) {
             return;
         }
-        $this->log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
+       self::log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
 
         // Ignore EntryController endpoints and ApiController endpoints.
         // AccessToken for /api will be checked in class.hooks.php
@@ -295,7 +295,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
 
         $cookieName = c('Plugins.Topcoder.SSO.CookieName');
-        $this->log('Cookie Name', ['value' => $cookieName]);
+       self::log('Cookie Name', ['value' => $cookieName]);
 
         $cookiesToken = isset($_COOKIE[$cookieName]) ? $_COOKIE[$cookieName] : null;
 
@@ -303,16 +303,16 @@ class TopcoderPlugin extends Gdn_Plugin {
         $accessToken = $headersToken ? $headersToken : $cookiesToken;
 
         if ($cookiesToken) {
-            $this->log('Token from Cookies', ['value' => $cookiesToken]);
+           self::log('Token from Cookies', ['value' => $cookiesToken]);
         }
         if ($headersToken) {
-            $this->log('Token from Headers', ['value' => '' . $headersToken]);
+           self::log('Token from Headers', ['value' => '' . $headersToken]);
         }
 
         if ($accessToken) {
-            $this->log('Using Token', ['value' => $accessToken]);
+           self::log('Using Token', ['value' => $accessToken]);
         } else {
-            $this->log('Token wasn\'t found', []);
+           self::log('Token wasn\'t found', []);
             $this->fireEvent('GuestSignIn', []);
             return;
         }
@@ -322,13 +322,13 @@ class TopcoderPlugin extends Gdn_Plugin {
         if ($useTopcoderAuthToken && $accessToken) {
 
             $VALID_ISSUERS = explode(",", c('Plugins.Topcoder.ValidIssuers'));
-            $this->log('Valid Issuers:', ['result' => $VALID_ISSUERS]);
+           self::log('Valid Issuers:', ['result' => $VALID_ISSUERS]);
 
             $decodedToken = null;
             try {
                 $decodedToken = (new Parser())->parse((string)$accessToken);
             } catch (\Exception $e) {
-                $this->log('Could\'not decode a token', ['Error' => $e . getMessage]);
+               self::log('Could\'not decode a token', ['Error' => $e . getMessage]);
                 $this->fireEvent('BadSignIn', [
                     'jwt' =>  $accessToken,
                     'ErrorCode' => 'TokenNotDecoded',
@@ -336,11 +336,11 @@ class TopcoderPlugin extends Gdn_Plugin {
                 return;
             }
 
-            $this->log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
+           self::log('Decoded Token', ['Headers' => $decodedToken->getHeaders(), 'Claims' => $decodedToken->getClaims()]);
             $signatureVerifier = null;
             $issuer = $decodedToken->hasClaim('iss') ? $decodedToken->getClaim('iss') : null;
             if ($issuer === null || !in_array($issuer, $VALID_ISSUERS)) {
-                $this->log('Invalid token issuer', ['Found issuer' => $issuer, 'Valid issuers' => $VALID_ISSUERS]);
+               self::log('Invalid token issuer', ['Found issuer' => $issuer, 'Valid issuers' => $VALID_ISSUERS]);
                 $this->fireEvent('BadSignIn', [
                     'jwt' =>  $accessToken,
                     'ErrorCode' => 'InvalidTokenIssuer',
@@ -348,7 +348,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 return;
             }
 
-            $this->log('Issuer', ['Issuer' => $issuer]);
+           self::log('Issuer', ['Issuer' => $issuer]);
 
             $AUTH0_AUDIENCE = null;
             $USERNAME_CLAIM = null;
@@ -381,22 +381,22 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             try {
                 $tokenVerifier->verify($accessToken);
-                $this->log('Verification of the token was successful', []);
+               self::log('Verification of the token was successful', []);
             } catch (\Auth0\SDK\Exception\InvalidTokenException $e) {
                 if ($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), 'Audience (aud) claim must be a string)') === 0) {
                     // FIX: a Topcoder payload (HS256) doesn't have 'aud'
-                    $this->log('Verification of the HS256 token wasn\'t successful', ['Error' => $e . getMessage]);
+                   self::log('Verification of the HS256 token wasn\'t successful', ['Error' => $e . getMessage]);
                 }
             } catch (\Exception $e) {
                 // Silently Token Refresh Logic for HS256 JWT
                 if ($decodedToken->getHeader('alg') === 'HS256' && strpos($e->getMessage(), "Expiration Time") === 0) {
-                    $this->log('The token was expired', []);
+                   self::log('The token was expired', []);
                     $refreshToken = $this->getRefreshToken($accessToken);
                     if ($refreshToken) {
                         setcookie('refresh_token', $refreshToken);
                     } else {
                         Gdn::session()->end(Gdn::authenticator());
-                        $this->log('Couldn\'t  get a refresh token. Ending the current session...', []);
+                       self::log('Couldn\'t  get a refresh token. Ending the current session...', []);
                         $this->fireEvent('BadSignIn', [
                             'jwt' =>  $accessToken,
                             'ErrorCode' => 'TokenRefreshFailed',
@@ -404,7 +404,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                         return;
                     }
                 } else {
-                    $this->log('Verification of the token was failed', ['Error' => $e . getMessage]);
+                   self::log('Verification of the token was failed', ['Error' => $e . getMessage]);
                     $this->fireEvent('BadSignIn', [
                         'jwt' =>  $accessToken,
                         'ErrorCode' => 'TokenVerificationFailed',
@@ -413,10 +413,10 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
 
-            $this->log('Username Claim', ['value' => $USERNAME_CLAIM]);
+           self::log('Username Claim', ['value' => $USERNAME_CLAIM]);
 
             if (!$decodedToken->hasClaim($USERNAME_CLAIM)) {
-                $this->log('Couldn\'t get the requested claim', ['Claim' => $USERNAME_CLAIM]);
+               self::log('Couldn\'t get the requested claim', ['Claim' => $USERNAME_CLAIM]);
                 $this->fireEvent('BadSignIn', [
                     'jwt' =>  $accessToken,
                     'ErrorCode' => 'UsernameClaimNotFound',
@@ -430,16 +430,16 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             $topcoderUserName = $decodedToken->getClaim($USERNAME_CLAIM);
             if ($topcoderUserName) {
-                $this->log('Trying to signIn ...', ['username' => $topcoderUserName]);
+               self::log('Trying to signIn ...', ['username' => $topcoderUserName]);
 
                 $userModel = new UserModel();
                 $user = $userModel->getByUsername($topcoderUserName);
                 $userID = null;
                 if ($user) {
                     $userID = val('UserID', $user);
-                    $this->log('Found Vanilla User:', ['Vanilla UserID' => $userID]);
+                   self::log('Found Vanilla User:', ['Vanilla UserID' => $userID]);
                 } else {
-                    $this->log('Vanilla User was not found', []);
+                   self::log('Vanilla User was not found', []);
                     if($decodedToken->hasClaim('email')) {
                         $email = $decodedToken->getClaim('email');
                         $userData = [
@@ -464,9 +464,9 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                         try {
                             ModelUtils::validationResultToValidationException($userModel, Gdn::locale(), true);
-                            $this->log('Vanilla User was added', ['UserID' => $userID]);
+                           self::log('Vanilla User was added', ['UserID' => $userID]);
                         } catch (\Garden\Schema\ValidationException $e) {
-                            $this->log('Couldn\'t add a new user',['Topcoder Username' => $topcoderUserName, 'error' => $e->getMessage()]);
+                           self::log('Couldn\'t add a new user',['Topcoder Username' => $topcoderUserName, 'error' => $e->getMessage()]);
                             Logger::event(
                                 'sso_logging',
                                 Logger::ERROR,
@@ -488,11 +488,17 @@ class TopcoderPlugin extends Gdn_Plugin {
                     $userModel->fireEvent('AfterSignIn');
                     $session = Gdn::session();
                     if (!$session->isValid()) {
-                        $this->log('The session could not be started.', []);
+                       self::log('The session could not be started.', []);
                         throw new ClientException('The session could not be started.', 401);
                     }
+                } else {
+                   self::log('Go with the next Vanilla Authenticator', []);
                 }
+            } else {
+               self::log('Topcoder username from the claim is empty', ['USERNAME_CLAIM' => $USERNAME_CLAIM]);
             }
+        } else {
+           self::log('Topcoder Access token is not used. Use a default Vanilla Authenticator', []);
         }
     }
 
@@ -620,7 +626,7 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     public function base_afterSignIn_handler($sender, $args) {
-        $this->log('base_afterSignIn_handler', []);
+       self::log('base_afterSignIn_handler', []);
         if(!Gdn::session()->isValid()) {
             throw new ClientException('The session could not be started', 401);
         }
@@ -632,7 +638,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_guestSignIn_handler($sender, $args) {
-        $this->log('base_guestSignIn_handler', []);
+       self::log('base_guestSignIn_handler', []);
         $this->startSessionAsGuest($sender, $args);
     }
 
@@ -642,7 +648,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_badSignIn_handler($sender, $args) {
-        $this->log('base_badSignIn_handler', []);
+       self::log('base_badSignIn_handler', []);
         $this->startSessionAsGuest($sender, $args);
     }
 
@@ -663,19 +669,19 @@ class TopcoderPlugin extends Gdn_Plugin {
             }
 
         } catch  (\Exception $e) {
-            $this->log('Ending session', ['Error' => $e.getMessage]);
+           self::log('Ending session', ['Error' => $e.getMessage]);
         }
 
         // Start the 'session' as Guests
         if (!Gdn::session()->isValid()) {
-            $this->log('Starting a session as guest', []);
+           self::log('Starting a session as guest', []);
             Gdn::session()->start(false, false);
         }
 
     }
 
     public function entryController_topcoder_create($sender, $action = '', $errorCode = '') {
-        $this->log('entryController_topcoder_create:', ['action' => $action ]);
+       self::log('entryController_topcoder_create:', ['action' => $action ]);
         if($errorCode && $action=='signin') {
             $sender->SelfUrl = '';
             $sender->setData('Title', 'Error');
@@ -744,7 +750,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 return $response->result->content->refreshToken;
             }
         } catch (Exception $e) {
-            $this->log('Couldn\'t refresh a token', ['Error' => $e->getMessage()]);
+           self::log('Couldn\'t refresh a token', ['Error' => $e->getMessage()]);
         }
 
         return null;
@@ -810,7 +816,14 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
     }
 
-    public function categoryController_markRead_create($categoryID, $tKey) {
+    /**
+     * Allows user to mark a category.
+     * Override the Vanilla method to stay in the same page
+     *
+     * @param $categoryID
+     * @param $tKey
+     */
+     public function categoryController_markRead_create($categoryID, $tKey) {
         $categoryModel = new CategoryModel();
         if (Gdn::session()->validateTransientKey($tKey)) {
             $categoryModel->saveUserTree($categoryID, ['DateMarkedRead' => Gdn_Format::toDateTime()]);
@@ -824,6 +837,71 @@ class TopcoderPlugin extends Gdn_Plugin {
             redirectTo('/categories');
         }
 
+    }
+
+    /**
+     * Allows user to follow or unfollow a category.
+     * Override the Vanilla method to stay in the same page
+     *
+     * @param null $categoryID
+     * @param null $tKey
+     * @throws Gdn_UserException
+     */
+    public function categoryController_followed_create($sender,$categoryID = null, $tKey = null) {
+        // Make sure we are posting back.
+       if (!$sender->Request->isAuthenticatedPostBack() && !Gdn::session()->validateTransientKey($tKey)) {
+            throw permissionException('Javascript');
+        }
+
+        if (!Gdn::session()->isValid()) {
+            throw permissionException('SignedIn');
+        }
+
+        $userID = Gdn::session()->UserID;
+
+        $categoryModel = new CategoryModel();
+        $category = CategoryModel::categories($categoryID);
+        if (!$category) {
+            throw notFoundException('Category');
+        }
+
+        // Check the form to see if the data was posted.
+        $form = new Gdn_Form();
+        $categoryID = $form->getFormValue('CategoryID', $categoryID);
+        $followed = $form->getFormValue('Followed', null);
+        $hasPermission = $categoryModel::checkPermission($categoryID, 'Vanilla.Discussions.View');
+        if (!$hasPermission) {
+            throw permissionException('Vanilla.Discussion.View');
+        }
+        $result = $categoryModel->follow($userID, $categoryID, $followed);
+
+        // Set the new value for api calls and json targets.
+        $sender->setData([
+            'UserID' => $userID,
+            'CategoryID' => $categoryID,
+            'Followed' => $result
+        ]);
+
+        switch ($sender->deliveryType()) {
+            case DELIVERY_TYPE_DATA:
+                $sender->render('Blank', 'Utility', 'Dashboard');
+                return;
+            case DELIVERY_TYPE_ALL:
+                // Stay in the previous page
+                if(isset($_SERVER['HTTP_REFERER'])) {
+                    $previous = $_SERVER['HTTP_REFERER'];
+                    redirectTo($previous);
+                } else {
+                    redirectTo('/categories');
+                }
+        }
+
+        // Return the appropriate bookmark.
+        require_once $this->fetchViewLocation('helper_functions', 'Categories');
+        $markup = followButton($categoryID);
+        $sender->jsonTarget("!element", $markup, 'ReplaceWith');
+
+        $sender->render('Blank', 'Utility', 'Dashboard');
     }
 
     /**
@@ -1074,7 +1152,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function profileController_edit_create($sender, $args) {
-        $this->log('profileController_edit_handler', []);
+       self::log('profileController_edit_handler', []);
         redirectTo('/profile');
     }
 
@@ -1084,7 +1162,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function profileController_password_create($sender, $args) {
-        $this->log('profileController_edit_handler', []);
+       self::log('profileController_edit_handler', []);
         redirectTo('/profile');
     }
 
@@ -1202,7 +1280,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $resourceData = file_get_contents($topcoderRolesApiUrl , false, $context);
             if ($resourceData === false) {
                 // Handle errors (e.g. 404 and others)
-                $this->log('Couldn\'t get Topcoder Role Resources', ['headers' =>json_encode($http_response_header)]);
+               self::log('Couldn\'t get Topcoder Role Resources', ['headers' =>json_encode($http_response_header)]);
                 logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getRoleResources',
                     "Couldn't get Topcoder Role Resources".json_encode($http_response_header));
                 return null;
@@ -1210,8 +1288,8 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             return json_decode($resourceData);
         }
-        $this->log('Couldn\'t get Topcoder Role Resources: no token', []);
-        return null;
+       self::log('Couldn\'t get Topcoder Role Resources: no token', []);
+       return null;
     }
 
     /**
@@ -1232,14 +1310,14 @@ class TopcoderPlugin extends Gdn_Plugin {
             $resourceData = file_get_contents($topcoderRolesApiUrl . '?challengeId=' . $challengeId, false, $context);
             if ($resourceData === false) {
                 // Handle errors (e.g. 404 and others)
-                $this->log('Couldn\'t get challenge resources: no token', ['headers'=> json_encode($http_response_header)]);
+               self::log('Couldn\'t get challenge resources: no token', ['headers'=> json_encode($http_response_header)]);
                 logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getChallengeResources', "Couldn't get Topcoder challenge resources".json_encode($http_response_header));
                 return null;
             }
 
             return json_decode($resourceData);
         }
-        $this->log('Couldn\'t get challenge resources: no token', []);
+        self::log('Couldn\'t get challenge resources: no token', []);
         return null;
     }
 
@@ -1281,7 +1359,6 @@ class TopcoderPlugin extends Gdn_Plugin {
                 }
             }
         }
-
         return false;
     }
 
@@ -1414,19 +1491,31 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     // TODO: Debugging issues-108
     public function base_beforeNewDiscussionButton_handler($sender, $args) {
-        $newDiscussionModule = $args['NewDiscussionModule'];
-        $this->log('NewDiscussionModule_beforeNewDiscussionButton_handle', [
+       $newDiscussionModule = $args['NewDiscussionModule'];
+       self::log('NewDiscussionModule_beforeNewDiscussionButton_handler', [
             'ShowGuests' => $newDiscussionModule->ShowGuests,
             'CategoryID' => $newDiscussionModule->CategoryID, 'session.isValid' => Gdn::session()->isValid(),
-            'privilegedGuest' => ($this->ShowGuests && !Gdn::session()->isValid()),
+            'privilegedGuest' => ($newDiscussionModule->ShowGuests && !Gdn::session()->isValid()),
             'hasPermission' => Gdn::session()->checkPermission('Vanilla.Discussions.Add', true, 'Category', 'any')]);
+
     }
 
-    public function log($message, $data) {
+    public function gdn_dispatcher_beforeDispatch_handler($sender, $args) {
+        self::log('gdn_dispatcher_beforeDispatch_handler', [
+            'Permissions' => Gdn::session()->getPermissionsArray(),
+        ]);
+    }
+
+    public function userModel_loadPermissions_handler($sender, $args){
+        self::log('userModel_loadPermissions_handler', ['user' => $args['UserID'],
+            'loadPermissions' => $args['Permissions']]);
+    }
+
+    public static function log($message, $data = []) {
         // TODO: Debugging issues-108
-        //if (c('Vanilla.SSO.Debug')) {
+        //if (c('Vanilla.SSO.Debug') || c('Debug')) {
             Logger::event(
-                'sso_logging',
+                'topcoder_plugin',
                 Logger::INFO,
                 $message,
                 $data
