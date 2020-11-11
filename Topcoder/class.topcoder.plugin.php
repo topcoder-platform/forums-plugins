@@ -897,7 +897,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
 
         // Return the appropriate bookmark.
-        require_once $this->fetchViewLocation('helper_functions', 'Categories');
+        require_once $sender->fetchViewLocation('helper_functions', 'Categories');
         $markup = followButton($categoryID);
         $sender->jsonTarget("!element", $markup, 'ReplaceWith');
 
