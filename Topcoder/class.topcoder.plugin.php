@@ -31,10 +31,37 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     const ROLE_TYPE_TOPCODER = 'topcoder';
     const ROLE_TOPCODER_CONNECT_ADMIN = 'Connect Admin';
+    const ROLE_TOPCODER_ADMINISTRATOR = 'administrator';
     const ROLE_TOPCODER_COPILOT = 'copilot';
     const ROLE_TOPCODER_CONNECT_COPILOT = 'Connect Copilot';
     const ROLE_TOPCODER_CONNECT_MANAGER = 'Connect Manager';
     const DEFAULT_EXPIRATION = 86400;
+
+    const GLOBAl_TOPCODER_ROLES = [
+            self::ROLE_TOPCODER_COPILOT => [
+                'Role' => self::ROLE_TOPCODER_COPILOT,
+                'Type' => self::ROLE_TYPE_TOPCODER,
+                'Garden.Uploads.Add' => 1
+            ],
+
+            self::ROLE_TOPCODER_CONNECT_COPILOT => [
+                'Role' => self::ROLE_TOPCODER_CONNECT_COPILOT,
+                'Type' => self::ROLE_TYPE_TOPCODER,
+                'Garden.Uploads.Add' => 1
+            ],
+
+            self::ROLE_TOPCODER_ADMINISTRATOR => [
+                'Role' => self::ROLE_TOPCODER_ADMINISTRATOR,
+                'Type' => self::ROLE_TYPE_TOPCODER,
+                // all permissions
+            ],
+
+            self::ROLE_TOPCODER_CONNECT_ADMIN => [
+                'Role' => self::ROLE_TOPCODER_CONNECT_ADMIN,
+                'Type' => self::ROLE_TYPE_TOPCODER,
+                 // all permissions
+            ]
+    ];
     private $providerKey;
     private $provider;
     private $cacheHandler;
@@ -90,6 +117,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 ], ['AuthenticationKey' => 'topcoder']);
         }
 
+        $this->initDefaultVanillaRoles();
         $this->initDefaultTopcoderRoles();
 
         $this->initCache();
@@ -131,44 +159,29 @@ class TopcoderPlugin extends Gdn_Plugin {
         $defaultTopcoderRoles = TopcoderPlugin::getAllTopcoderRoles();
         $roleNames = array_column($defaultTopcoderRoles, 'roleName');
         $this->checkTopcoderRoles($roleNames);
+    }
 
+    /**
+     * Init all default Vanilla roles and set up permissions
+     */
+    private function initDefaultVanillaRoles() {
         $permissionModel = Gdn::permissionModel();
+
+        // Update Vanilla Guest role
+        $permissions = $permissionModel->getGlobalPermissions(2); // Guest role
+        unset($permissions['PermissionID']);
+        foreach ($permissions as $key => $value) {
+              $permissions[$key] = 0;
+        }
+        $permissions['Role'] = RoleModel::TYPE_GUEST;
+        $permissionModel->save($permissions);
+
+        // Update Vanilla Member role
         $permissionModel->save( [
-           'Role' => 'Guest',
-           'JunctionTable' => 'Category',
-           'JunctionColumn' => 'PermissionCategoryID',
-           'JunctionID' => -1,
-           'Vanilla.Discussions.View' => 0,
-           'Vanilla.Discussions.Add' => 0,
-           'Vanilla.Comments.Add' => 0
+            'Role' => 'Member',
+            'Garden.Uploads.Add' => 0
         ]);
 
-        $permissionModel->save( [
-          'Role' => 'Member',
-          'Garden.Uploads.Add' => 0
-        ]);
-
-        $permissionModel->save([
-           'Role' => self::ROLE_TOPCODER_COPILOT,
-           'Garden.Uploads.Add' => 1
-        ]);
-
-        $permissionModel->save([
-            'Role' => self::ROLE_TOPCODER_CONNECT_COPILOT,
-            'Garden.Uploads.Add' => 1
-        ]);
-        // TODO: ask which roles should be used
-        /*
-        $permissionModel->save([
-            'Role' => self::ROLE_TOPCODER_CONNECT_MANAGER,
-            'Garden.Uploads.Add' => 1
-        ]);
-
-        $permissionModel->save([
-            'Role' => self::ROLE_TOPCODER_CONNECT_ADMIN,
-            'Garden.Uploads.Add' => 1
-        ]);
-        */
         $permissionModel->clearPermissions();
     }
 
@@ -217,6 +230,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             'AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
             'AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
             'AuthenticationProvider.RegisterUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Register URL'],
+            'AuthenticationProvider.IsDefault' => ['Control' => 'CheckBox', 'Default' => true, 'Description' => 'Use Topcoder Auth0 provider'],
             'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for HS256 JWT'],
@@ -286,6 +300,12 @@ class TopcoderPlugin extends Gdn_Plugin {
         if(!c('Garden.Installed')) {
             return;
         }
+
+        if(!$this->isDefault()) {
+            self::log('Topcoder Auth0 is not a default provider', []);
+            return;
+        }
+
        self::log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
 
         // Ignore EntryController endpoints and ApiController endpoints.
@@ -558,6 +578,52 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             // Insert the role.
             $roleModel->SQL->insert('Role', $values);
+
+            // Update Topcoder role with permissions
+            if(array_key_exists($values['Name'],self::GLOBAl_TOPCODER_ROLES)) {
+
+                $permissionModel = Gdn::permissionModel();
+                $permissions = $permissionModel->getGlobalPermissions($roleID);
+
+                unset($permissions['PermissionID']);
+
+                if($values['Name'] == self::ROLE_TOPCODER_CONNECT_ADMIN || $values['Name'] == self::ROLE_TOPCODER_ADMINISTRATOR) {
+                    // Add all permissions
+                    foreach ($permissions as $key => $value) {
+                        $permissions[$key] = 1;
+                    }
+                } else {
+                    // Update permissions
+                    $globalRolePermissions = self::GLOBAl_TOPCODER_ROLES[$values['Name']];
+                    foreach ($permissions as $key => $value) {
+                        $permissions[$key] = array_key_exists($key, $globalRolePermissions)? $globalRolePermissions[$key]:$value;
+                    }
+                }
+
+                $permissions['Role'] = $values['Name'];
+                $permissions['Type'] = $values['Type'];
+                $permissionModel->save($permissions, true);
+
+                // Update global category permissions
+                if($values['Name'] == self::ROLE_TOPCODER_CONNECT_ADMIN || $values['Name'] == self::ROLE_TOPCODER_ADMINISTRATOR) {
+                    $categoryPermissions = $permissionModel->getJunctionPermissions(
+                        ['JunctionID' => -1, 'RoleID' => $roleID],
+                        'Category'
+                    );
+
+                    foreach ($categoryPermissions as $categoryPermission) {
+                        foreach ($categoryPermission as $key => $value) {
+                            // Update Vanilla.Discussions.View and so on
+                            if (stringBeginsWith($key, 'Vanilla.')) {
+                                $categoryPermission[$key] = 1;
+                            }
+                        }
+                        $categoryPermission['Role'] = $values['Name'];
+                        $categoryPermission['Type'] = $values['Type'];
+                        $permissionModel->save($categoryPermission);
+                    }
+                }
+            }
         }
 
         $roleModel->clearCache();

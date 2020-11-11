@@ -135,6 +135,7 @@ class TopcoderConfigurationModule extends ConfigurationModule{
                 $authform->setFormValue('AuthenticationKey','topcoder');
                 $authform->setFormValue('SignInUrl' , $authenticationProviderData['SignInUrl']);
                 $authform->setFormValue('SignOutUrl' , $authenticationProviderData['SignOutUrl']);
+                $authform->setFormValue('IsDefault' , $authenticationProviderData['IsDefault']);
                 $authform->setFormValue('Attributes' , '');
                 if($authform->save()) {
                     $this->_Sender->informMessage(t('Saved'));
