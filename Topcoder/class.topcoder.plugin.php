@@ -299,6 +299,12 @@ class TopcoderPlugin extends Gdn_Plugin {
         if(!c('Garden.Installed')) {
             return;
         }
+
+        if(!$this->isDefault()) {
+            self::log('Topcoder Auth0 is not a default provider', []);
+            return;
+        }
+
        self::log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
 
         // Ignore EntryController endpoints and ApiController endpoints.
