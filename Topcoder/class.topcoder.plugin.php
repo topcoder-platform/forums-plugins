@@ -108,7 +108,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $provider['SignOutUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl');
             $provider['RegisterUrl'] = c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl');
             $provider['Active'] = 1;
-            $provider['Default'] = 1;
+            $provider['Default'] = 0;
             $model->save($provider);
         }else {
             $model->update(['SignInUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignInUrl'),
@@ -117,11 +117,10 @@ class TopcoderPlugin extends Gdn_Plugin {
                 ], ['AuthenticationKey' => 'topcoder']);
         }
 
-        $this->initDefaultVanillaRoles();
-        $this->initDefaultTopcoderRoles();
+      //  $this->initDefaultVanillaRoles();
+      //  $this->initDefaultTopcoderRoles();
 
         $this->initCache();
-
     }
 
     public function onDisable() {
