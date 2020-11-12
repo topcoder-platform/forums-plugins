@@ -117,11 +117,10 @@ class TopcoderPlugin extends Gdn_Plugin {
                 ], ['AuthenticationKey' => 'topcoder']);
         }
 
-        $this->initDefaultVanillaRoles();
-        $this->initDefaultTopcoderRoles();
+      //  $this->initDefaultVanillaRoles();
+      //  $this->initDefaultTopcoderRoles();
 
         $this->initCache();
-
     }
 
     public function onDisable() {
