@@ -229,7 +229,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
             'Plugins.Topcoder.AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
             'Plugins.Topcoder.AuthenticationProvider.RegisterUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Register URL'],
-            'Plugins.Topcoder.AuthenticationProvider.IsDefault' => ['Control' => 'CheckBox', 'Default' => true, 'Description' => 'Use Topcoder Auth0 provider'],
+            'AuthenticationProvider.IsDefault' => ['Control' => 'CheckBox', 'Default' => true, 'Description' => 'Use Topcoder Auth0 provider'],
             'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for HS256 JWT'],
