@@ -34,10 +34,6 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @throws Gdn_UserException
      */
     public function setup() {
-        // Initial data hasn't been inserted
-        if(!c('Garden.Installed')) {
-            return;
-        }
         $this->structure();
     }
 

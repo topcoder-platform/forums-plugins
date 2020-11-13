@@ -92,29 +92,38 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @throws Gdn_UserException
      */
     public function setup() {
-        // Initial data hasn't been inserted
-        if(!c('Garden.Installed')) {
-            return;
-        }
 
         $this->structure();
+
+        $topcoderSSOAuth0Url=getenv('TOPCODER_PLUGIN_SSO_REFRESHTOKENURL');
+        $signInUrl = getenv('TOPCODER_PLUGIN_SIGNIN_URL');
+        $signOutUrl = getenv('TOPCODER_PLUGIN_SIGNOUT_URL');
+        if($signInUrl === false) {
+            $signInUrl =$topcoderSSOAuth0Url.'?retUrl='.urlencode('https://'.$_SERVER['SERVER_NAME'].'/');
+        }
+        if($signOutUrl === false) {
+            $signOutUrl =$topcoderSSOAuth0Url.'?logout=true&retUrl='.urlencode('https://'.$_SERVER['SERVER_NAME'].'/');
+        }
+
+        $registerUrl = getenv('TOPCODER_PLUGIN_AUTHENTICATIONPROVIDER_REGISTERURL');
 
         $model = new Gdn_AuthenticationProviderModel();
         $provider = $model->getID('topcoder');
         if(!$provider) {
             $provider['AuthenticationKey'] = 'topcoder';
             $provider['AuthenticationSchemeAlias'] = 'topcoder';
-            $provider['SignInUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignInUrl');
-            $provider['SignOutUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl');
-            $provider['RegisterUrl'] = c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl');
+            $provider['SignInUrl'] = $signInUrl;
+            $provider['SignOutUrl'] = $signOutUrl;
+            $provider['RegisterUrl'] = $registerUrl;
             $provider['Active'] = 1;
-            $provider['Default'] = 1;
-            $provider['IsDefault'] = 1;
+            $provider['IsDefault'] = 0;
             $model->save($provider);
         }else {
-            $model->update(['SignInUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignInUrl'),
-                'SignOutUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl'),
-                 'RegisterUrl' => c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl')
+            $model->update(['SignInUrl' => $signInUrl,
+                'SignOutUrl' => $signOutUrl,
+                'RegisterUrl' => $registerUrl ,
+                'Active' => 1,
+                'IsDefault' => 1
                 ], ['AuthenticationKey' => 'topcoder']);
         }
 
@@ -205,16 +214,16 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cf->form()->validateRule('Plugins.Topcoder.ResourcesApiURI', 'ValidateRequired', t('You must provide Resources API URI.'));
             $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
             if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
-                $cf->form()->validateRule('Plugins.Topcoder.AuthenticationProvider.SignInUrl', 'ValidateRequired', t('You must provide SignIn URL.'));
-                $cf->form()->validateRule('Plugins.Topcoder.AuthenticationProvider.SignOutUrl', 'ValidateRequired', t('You must provide SignOut URL.'));
-                $cf->form()->validateRule('Plugins.Topcoder.AuthenticationProvider.RegisterUrl', 'ValidateRequired', t('You must provide Register URL.'));
+                $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateRequired', t('You must provide SignIn URL.'));
+                $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateRequired', t('You must provide SignOut URL.'));
+                $cf->form()->validateRule('AuthenticationProvider.RegisterUrl', 'ValidateRequired', t('You must provide Register URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateRequired', t('You must provide Refresh Token URL.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.CookieName', 'ValidateRequired', t('You must provide Cookie Name.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim for HS256 JWT.'));
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim', 'ValidateRequired', t('You must provide Username Claim for RS256 JWT.'));
-                $cf->form()->validateRule('Plugins.Topcoder.AuthenticationProvider.SignInUrl', 'ValidateUrl','You must provide valid SignIn URL.');
-                $cf->form()->validateRule('Plugins.Topcoder.AuthenticationProvider.SignOutUrl', 'ValidateUrl','You must provide valid SignOut URL.');
-                $cf->form()->validateRule('Plugins.Topcoder.AuthenticationProvider.RegisterUrl', 'ValidateUrl','You must provide valid Register URL.');
+                $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateUrl','You must provide valid SignIn URL.');
+                $cf->form()->validateRule('AuthenticationProvider.SignOutUrl', 'ValidateUrl','You must provide valid SignOut URL.');
+                $cf->form()->validateRule('AuthenticationProvider.RegisterUrl', 'ValidateUrl','You must provide valid Register URL.');
                 $cf->form()->validateRule('Plugins.Topcoder.SSO.RefreshTokenURL', 'ValidateUrl','You must provide valid Refresh Token URL.');
             }
         }
@@ -227,10 +236,10 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.ResourcesApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Resources API URI'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member Profile URL'],
             'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
-            'Plugins.Topcoder.AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
-            'Plugins.Topcoder.AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
-            'Plugins.Topcoder.AuthenticationProvider.RegisterUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Register URL'],
-            'Plugins.Topcoder.AuthenticationProvider.IsDefault' => ['Control' => 'CheckBox', 'Default' => true, 'Description' => 'Use Topcoder Auth0 provider'],
+            'AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
+            'AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
+            'AuthenticationProvider.RegisterUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Register URL'],
+            'AuthenticationProvider.IsDefault' => ['Control' => 'CheckBox', 'Default' => true, 'Description' => 'Use Topcoder Auth0 provider'],
             'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for HS256 JWT'],
