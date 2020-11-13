@@ -109,6 +109,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $provider['RegisterUrl'] = c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl');
             $provider['Active'] = 1;
             $provider['Default'] = 1;
+            $provider['IsDefault'] = 1;
             $model->save($provider);
         }else {
             $model->update(['SignInUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignInUrl'),
