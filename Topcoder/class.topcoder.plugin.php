@@ -301,10 +301,10 @@ class TopcoderPlugin extends Gdn_Plugin {
             return;
         }
 
-        // if(!$this->isDefault()) {
-        //     self::log('Topcoder Auth0 is not a default provider', []);
-        //     return;
-        // }
+        if(!$this->isDefault()) {
+            self::log('Topcoder Auth0 is not a default provider', []);
+            return;
+        }
 
        self::log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
 
