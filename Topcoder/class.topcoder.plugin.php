@@ -108,7 +108,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $provider['SignOutUrl'] = c('Plugins.Topcoder.AuthenticationProvider.SignOutUrl');
             $provider['RegisterUrl'] = c('Plugins.Topcoder.AuthenticationProvider.RegisterUrl');
             $provider['Active'] = 1;
-            $provider['Default'] = 0;
+            $provider['Default'] = 1;
             $model->save($provider);
         }else {
             $model->update(['SignInUrl' => c('Plugins.Topcoder.AuthenticationProvider.SignInUrl'),
@@ -229,7 +229,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
             'Plugins.Topcoder.AuthenticationProvider.SignOutUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignOut URL'],
             'Plugins.Topcoder.AuthenticationProvider.RegisterUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Register URL'],
-            'AuthenticationProvider.IsDefault' => ['Control' => 'CheckBox', 'Default' => true, 'Description' => 'Use Topcoder Auth0 provider'],
+            'Plugins.Topcoder.AuthenticationProvider.IsDefault' => ['Control' => 'CheckBox', 'Default' => true, 'Description' => 'Use Topcoder Auth0 provider'],
             'Plugins.Topcoder.SSO.RefreshTokenURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Refresh Token URL for RS256 JWT'],
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for HS256 JWT'],
