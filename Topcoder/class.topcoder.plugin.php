@@ -854,27 +854,55 @@ class TopcoderPlugin extends Gdn_Plugin {
         </td>
         <?php
     }
-    /** **/
+
+    function gdn_dispatcher_beforeControllerMethod_handler($sender, $args){
+        if(!Gdn::session()->isValid()) {
+            return;
+        }
+        $controllerArgs = json_decode(json_encode($args['Controller']->ReflectArgs), TRUE);
+        $methodArgs = array_change_key_case($controllerArgs,CASE_LOWER);
+        self::log('gdn_dispatcher_beforeControllerMethod_handler', ['controller' => $args['Controller']->ControllerName,
+            'reflectArgs' => $args['Controller']->ReflectArgs, 'args' =>  $args['Controller']->Data['test']
+        ]);
+
+        $groupID = false;
+        if($args['Controller'] instanceof DiscussionController) {
+            if(array_key_exists('discussionid', $methodArgs)) {
+                $discussionID = $methodArgs['discussionid'];
+                $discussionModel = new DiscussionModel();
+                $discussion = $discussionModel->getID((int)$discussionID);
+                if($discussion->CategoryID){
+                    $categoryModel = new CategoryModel();
+                    $category = $categoryModel->getID($discussion->CategoryID);
+                    $groupID = $category->GroupID;
+                }
+            }
+        } else if($args['Controller'] instanceof  Groupcontroller) {
+            if (array_key_exists('groupid', $methodArgs)) {
+                $groupID = (int) $methodArgs['groupid'];
+            }
+        }
+        //} else if($args instanceof CategoriesController) {
+            //TODO
+        //} else if ( $args instanceof CategoryController) {
+            //TODO
+        //}
+        self::log('gdn_dispatcher_beforeControllerMethod_handler:groupID', ['GroupID' => $groupID]);
+        if($groupID && $groupID > 0) {
+            $groupModel = new GroupModel();
+            $group = $groupModel->getByGroupID($groupID);
+            if ($group->ChallengeID) {
+                $this->setTopcoderProjectData($args['Controller'], $group->ChallengeID);
+            }
+        }
+    }
+
     /**
      * Add scripts. Add script to hide iPhone browser bar on pageload.
      */
     public function base_render_before($sender) {
         if (is_object($sender->Head)) {
             $sender->Head->addString($this->getJS());
-        }
-
-        if($sender instanceof DiscussionController || $sender instanceof GroupController) {
-            if($sender->data('Group')) {
-                $Group = $sender->data('Group');
-                $challengeID = $Group->ChallengeID;
-                if($challengeID) {
-                    $resources = $this->getChallengeResources($challengeID);
-                    $roleResources = $this->getRoleResources();
-                    $sender->setData('Resources', $resources);
-                    $sender->setData('RoleResources', $roleResources);
-
-                }
-            }
         }
     }
 
@@ -1563,6 +1591,55 @@ class TopcoderPlugin extends Gdn_Plugin {
         return UserModel::getDefaultAvatarUrl();
     }
 
+
+    // Set Topcoder Project Roles Data for a challenge
+    private function setTopcoderProjectData($sender, $challengeID) {
+        if($challengeID) {
+            $resources = $this->getChallengeResources($challengeID);
+            $roleResources = $this->getRoleResources();
+            $currentProjectRoles = $this->getTopcoderProjectRoles(Gdn::session()->User, $resources, $roleResources);
+            if($currentProjectRoles) {
+                $currentProjectRoles =  array_map('strtolower',$currentProjectRoles);
+            } else {
+
+            }
+
+            $sender->Data['ChallengeResources'] = $resources;
+            $sender->Data['ChallengeRoleResources'] = $roleResources;
+            $sender->Data['ChallengeCurrentUserProjectRoles'] = $currentProjectRoles;
+            $sender->Data['ChallengeChallengeID'] = $challengeID;
+            if($sender->GroupModel) {
+                $sender->GroupModel->setCurrentUserTopcoderProjectRoles($currentProjectRoles);
+            }
+            self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'currentUser' => $currentProjectRoles,
+                'Topcoder Resources' => $resources , 'Topcoder RoleResources'
+                => $roleResources,]);
+        }
+    }
+
+    /**
+     * Get a list of Topcoder Project Roles for an user
+     * @param $user object User
+     * @param array $resources
+     * @param array $roleResources
+     * @return array
+     */
+    private function getTopcoderProjectRoles($user, $resources = null, $roleResources = null) {
+        $topcoderUsername = val('Name', $user, t('Unknown'));
+        $roles = [];
+        if (isset($resources) && isset($roleResources)) {
+            $allResourcesByMember = array_filter($resources, function ($k) use ($topcoderUsername) {
+                return $k->memberHandle == $topcoderUsername;
+            });
+            foreach ($allResourcesByMember as $resource) {
+                $roleResource = array_filter($roleResources, function ($k) use ($resource) {
+                    return $k->id == $resource->roleId;
+                });
+                array_push($roles, reset($roleResource)->name);
+            }
+        }
+        return $roles;
+    }
 
     // TODO: Debugging issues-108
     public function base_beforeNewDiscussionButton_handler($sender, $args) {
