@@ -701,10 +701,11 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     public function base_afterSignIn_handler($sender, $args) {
-       self::log('base_afterSignIn_handler', []);
         if(!Gdn::session()->isValid()) {
             throw new ClientException('The session could not be started', 401);
         }
+        self::log('base_afterSignIn_handler', ['Session Permissions' => Gdn::session()->getPermissionsArray()]);
+
     }
 
     /**
@@ -713,8 +714,8 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_guestSignIn_handler($sender, $args) {
-       self::log('base_guestSignIn_handler', []);
         $this->startSessionAsGuest($sender, $args);
+        self::log('base_guestSignIn_handler', ['Session Permissions' => Gdn::session()->getPermissionsArray()]);
     }
 
     /**
@@ -723,8 +724,9 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_badSignIn_handler($sender, $args) {
-       self::log('base_badSignIn_handler', []);
         $this->startSessionAsGuest($sender, $args);
+        self::log('base_badSignIn_handler', ['Session Permissions' => Gdn::session()->getPermissionsArray()]);
+
     }
 
     /**
@@ -856,6 +858,9 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     function gdn_dispatcher_beforeControllerMethod_handler($sender, $args){
+        if(!c('Garden.Installed')){
+            return;
+        }
         if(!Gdn::session()->isValid()) {
             return;
         }
@@ -1644,7 +1649,9 @@ class TopcoderPlugin extends Gdn_Plugin {
     // TODO: Debugging issues-108
     public function base_beforeNewDiscussionButton_handler($sender, $args) {
        $newDiscussionModule = $args['NewDiscussionModule'];
+
        self::log('NewDiscussionModule_beforeNewDiscussionButton_handler', [
+            'UserID' => Gdn::session()->UserID,
             'ShowGuests' => $newDiscussionModule->ShowGuests,
             'CategoryID' => $newDiscussionModule->CategoryID, 'session.isValid' => Gdn::session()->isValid(),
             'privilegedGuest' => ($newDiscussionModule->ShowGuests && !Gdn::session()->isValid()),
