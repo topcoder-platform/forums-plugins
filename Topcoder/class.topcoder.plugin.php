@@ -127,9 +127,6 @@ class TopcoderPlugin extends Gdn_Plugin {
                 ], ['AuthenticationKey' => 'topcoder']);
         }
 
-      //  $this->initDefaultVanillaRoles();
-      //  $this->initDefaultTopcoderRoles();
-
         $this->initCache();
     }
 
@@ -159,39 +156,6 @@ class TopcoderPlugin extends Gdn_Plugin {
         if(isWritable($JWKS_PATH_CACHE)) {
             $this->cacheHandler = new FileCache($JWKS_PATH_CACHE, self::DEFAULT_EXPIRATION);
         }
-    }
-
-    /**
-     * Init all default Topcoder roles and set up permissions
-     */
-    private function initDefaultTopcoderRoles() {
-        $defaultTopcoderRoles = TopcoderPlugin::getAllTopcoderRoles();
-        $roleNames = array_column($defaultTopcoderRoles, 'roleName');
-        $this->checkTopcoderRoles($roleNames);
-    }
-
-    /**
-     * Init all default Vanilla roles and set up permissions
-     */
-    private function initDefaultVanillaRoles() {
-        $permissionModel = Gdn::permissionModel();
-
-        // Update Vanilla Guest role
-        $permissions = $permissionModel->getGlobalPermissions(2); // Guest role
-        unset($permissions['PermissionID']);
-        foreach ($permissions as $key => $value) {
-              $permissions[$key] = 0;
-        }
-        $permissions['Role'] = RoleModel::TYPE_GUEST;
-        $permissionModel->save($permissions);
-
-        // Update Vanilla Member role
-        $permissionModel->save( [
-            'Role' => 'Member',
-            'Garden.Uploads.Add' => 0
-        ]);
-
-        $permissionModel->clearPermissions();
     }
 
     /**
@@ -513,7 +477,9 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                 if ($userID) {
                     $this->syncTopcoderRoles($userID,$topcoderRoles);
+                    Gdn::authenticator()->setIdentity($userID, true);
                     Gdn::session()->start($userID, true);
+                    Gdn::authenticator()->trigger(Gdn_Authenticator::AUTH_SUCCESS);
                     $userModel->fireEvent('AfterSignIn');
                     $session = Gdn::session();
                     if (!$session->isValid()) {
@@ -724,7 +690,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_badSignIn_handler($sender, $args) {
-        $this->startSessionAsGuest($sender, $args);
+       $this->startSessionAsGuest($sender, $args);
         self::log('base_badSignIn_handler', ['Session Permissions' => Gdn::session()->getPermissionsArray()]);
 
     }
@@ -749,12 +715,9 @@ class TopcoderPlugin extends Gdn_Plugin {
            self::log('Ending session', ['Error' => $e.getMessage]);
         }
 
-        // Start the 'session' as Guests
-        if (!Gdn::session()->isValid()) {
-           self::log('Starting a session as guest', []);
-            Gdn::session()->start(false, false);
-        }
-
+        Gdn::authenticator()->setIdentity(null, false);
+        Gdn::authenticator()->trigger(Gdn_Authenticator::AUTH_DENIED);
+        self::log('Guest settings', ['IsValidSession' => Gdn::session()->isValid(), 'Session Permissions' => Gdn::session()->getPermissionsArray()]);
     }
 
     public function entryController_topcoder_create($sender, $action = '', $errorCode = '') {
@@ -867,7 +830,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $controllerArgs = json_decode(json_encode($args['Controller']->ReflectArgs), TRUE);
         $methodArgs = array_change_key_case($controllerArgs,CASE_LOWER);
         self::log('gdn_dispatcher_beforeControllerMethod_handler', ['controller' => $args['Controller']->ControllerName,
-            'reflectArgs' => $args['Controller']->ReflectArgs, 'args' =>  $args['Controller']->Data['test']
+            'reflectArgs' => $args['Controller']->ReflectArgs
         ]);
 
         $groupID = false;
@@ -1670,23 +1633,6 @@ class TopcoderPlugin extends Gdn_Plugin {
     public function userModel_loadPermissions_handler($sender, $args){
         self::log('userModel_loadPermissions_handler', ['user' => $args['UserID'],
             'loadPermissions' => $args['Permissions']]);
-    }
-
-    // TODO: Debugging search
-    public function searchModel_search_handler($sender, $args){
-        self::log('searchModel_search_handler', ['Search' => $args['Search']]);
-    }
-
-    // TODO: Debugging search
-    public function searchModel_beforeGetSearchQuery_handler($sender, $args){
-        self::log('searchModel_beforeGetSearchQuery_handler', ['Sql' => $args['Sql'],
-            'Parameters' => $args['Parameters']]);
-    }
-
-    // TODO: Debugging search
-    public function searchController_beforeSearchExcerpt_handler($sender, $args){
-        self::log('searchController_beforeSearchExcerpt_handler', ['Record' => $args['Record']
-         ]);
     }
 
     public static function log($message, $data = []) {
