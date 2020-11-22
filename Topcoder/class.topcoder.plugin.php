@@ -274,6 +274,14 @@ class TopcoderPlugin extends Gdn_Plugin {
             return;
         }
 
+        //TODO: https://github.com/topcoder-platform/forums/issues/108
+        //Clear cache for Guests
+        $userModel = new UserModel();
+        self::log('Guest permissions:', ['IsCacheEnabled:' => Gdn::cache()->activeEnabled() , 'Permissions' => $userModel->getPermissions(0)]);
+        // Delete cached data for userID=0 .
+        $cacheCleared = $userModel->clearCache(0);
+        self::log('After clearing cache for Guest:', ['IsCacheCleared' => $cacheCleared,  'Permissions' => $userModel->getPermissions(0)]);
+
         if(!$this->isDefault()) {
             self::log('Topcoder Auth0 is not a default provider', []);
             return;
