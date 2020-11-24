@@ -274,14 +274,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             return;
         }
 
-        //TODO: https://github.com/topcoder-platform/forums/issues/108
-        //Clear cache for Guests
-        $userModel = new UserModel();
-        self::log('Guest permissions:', ['IsCacheEnabled:' => Gdn::cache()->activeEnabled() , 'Permissions' => $userModel->getPermissions(0)]);
-        // Delete cached data for userID=0 .
-        $cacheCleared = $userModel->clearCache(0);
-        self::log('After clearing cache for Guest:', ['IsCacheCleared' => $cacheCleared,  'Permissions' => $userModel->getPermissions(0)]);
-
         if(!$this->isDefault()) {
             self::log('Topcoder Auth0 is not a default provider', []);
             return;
@@ -456,15 +448,15 @@ class TopcoderPlugin extends Gdn_Plugin {
                             'ValidateName' => false
                         ];
                         $userID = $userModel->save($userData, $settings);
-
-                        $roles  = RoleModel::getByName($topcoderRoles);
-                        // Add all Topcoder roles from a payload and Vanilla member
-                        // User must have at least one role with the 'SignIn.Allow' permission to sign in
-                        $roleIDs = array_merge(array_keys($roles), [8]);
-                        $userModel->saveRoles($userID, $roleIDs, false);
-
                         try {
-                            ModelUtils::validationResultToValidationException($userModel, Gdn::locale(), true);
+                            if($userID > 0) {
+                                $roles = RoleModel::getByName($topcoderRoles);
+                                // Add all Topcoder roles from a payload and Vanilla member
+                                // User must have at least one role with the 'SignIn.Allow' permission to sign in
+                                $roleIDs = array_merge(array_keys($roles), [8]);
+                                $userModel->saveRoles($userID, $roleIDs, false);
+                            }
+                           ModelUtils::validationResultToValidationException($userModel, Gdn::locale(), true);
                            self::log('Vanilla User was added', ['UserID' => $userID]);
                         } catch (\Garden\Schema\ValidationException $e) {
                            self::log('Couldn\'t add a new user',['Topcoder Username' => $topcoderUserName, 'error' => $e->getMessage()]);
@@ -475,7 +467,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                                 ['Topcoder Username' => $topcoderUserName, 'error' => $e->getMessage()]
                             );
                         }
-                        if($userID === false) {
+                        if(!$userID) {
                             $this->fireEvent('GuestSignIn', []);
                             return;
                         }
@@ -1617,18 +1609,6 @@ class TopcoderPlugin extends Gdn_Plugin {
         return $roles;
     }
 
-    // TODO: Debugging issues-108
-    public function base_beforeNewDiscussionButton_handler($sender, $args) {
-       $newDiscussionModule = $args['NewDiscussionModule'];
-
-       self::log('NewDiscussionModule_beforeNewDiscussionButton_handler', [
-            'UserID' => Gdn::session()->UserID,
-            'ShowGuests' => $newDiscussionModule->ShowGuests,
-            'CategoryID' => $newDiscussionModule->CategoryID, 'session.isValid' => Gdn::session()->isValid(),
-            'privilegedGuest' => ($newDiscussionModule->ShowGuests && !Gdn::session()->isValid()),
-            'hasPermission' => Gdn::session()->checkPermission('Vanilla.Discussions.Add', true, 'Category', 'any')]);
-
-    }
 
     // TODO: Debugging issues-108
     public function gdn_dispatcher_beforeDispatch_handler($sender, $args) {
