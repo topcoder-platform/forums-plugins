@@ -1617,18 +1617,12 @@ class TopcoderPlugin extends Gdn_Plugin {
         ]);
     }
 
-    // TODO: Debugging issues-108
-    public function userModel_loadPermissions_handler($sender, $args){
-        self::log('userModel_loadPermissions_handler', ['user' => $args['UserID'],
-            'loadPermissions' => $args['Permissions']]);
-    }
-
     public static function log($message, $data = []) {
         // TODO: Debugging issues-108
         //if (c('Vanilla.SSO.Debug') || c('Debug')) {
             Logger::event(
                 'topcoder_plugin',
-                Logger::INFO,
+                Logger::DEBUG,
                 $message,
                 $data
             );
