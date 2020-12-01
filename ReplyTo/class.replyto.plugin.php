@@ -159,8 +159,8 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @param $sender
      * @param $args
      */
-    public function discussionController_commentOptions_handler($sender, $args) {
-        ReplyToPlugin::log('discussionController_CommentOptions_handler', ['CommentID' =>$args['Comment']->CommentID]);
+    public function base_commentOptions_handler($sender, $args) {
+        ReplyToPlugin::log('base_CommentOptions_handler', ['CommentID' =>$args['Comment']->CommentID]);
         if (!Gdn::Session()->isValid()) {
             return;
         }
@@ -303,7 +303,7 @@ class ReplyToPlugin extends Gdn_Plugin {
         if (c('Debug')) {
             Logger::event(
                 'replyto_plugin',
-                Logger::INFO,
+                Logger::DEBUG,
                 $message,
                 $data
             );
