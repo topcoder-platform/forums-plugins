@@ -29,6 +29,9 @@ use Vanilla\Utility\ModelUtils;
 
 class TopcoderPlugin extends Gdn_Plugin {
 
+    /** Cache key. */
+    const  CACHE_KEY_TOPCODER_PROFILE = 'topcoder.{UserID}';
+
     const ROLE_TYPE_TOPCODER = 'topcoder';
     const ROLE_TOPCODER_CONNECT_ADMIN = 'Connect Admin';
     const ROLE_TOPCODER_ADMINISTRATOR = 'administrator';
@@ -273,6 +276,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         if(!c('Garden.Installed')) {
             return;
         }
+        self::log('Cache', ['Active Cache' => Gdn_Cache::activeCache(), 'Type' =>Gdn::cache()->type()]);
 
         if(!$this->isDefault()) {
             self::log('Topcoder Auth0 is not a default provider', []);
@@ -426,7 +430,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                self::log('Trying to signIn ...', ['username' => $topcoderUserName]);
 
                 $userModel = new UserModel();
-                $user = $userModel->getByUsername($topcoderUserName);
+                $user = $userModel->getByUsername($topcoderUserName, false);
                 $userID = null;
                 if ($user) {
                     $userID = val('UserID', $user);
@@ -855,7 +859,6 @@ class TopcoderPlugin extends Gdn_Plugin {
         //} else if ( $args instanceof CategoryController) {
             //TODO
         //}
-        self::log('gdn_dispatcher_beforeControllerMethod_handler:groupID', ['GroupID' => $groupID]);
         if($groupID && $groupID > 0) {
             $groupModel = new GroupModel();
             $group = $groupModel->getByGroupID($groupID);
@@ -1237,8 +1240,6 @@ class TopcoderPlugin extends Gdn_Plugin {
         redirectTo('/profile');
     }
 
-
-
     /**
      * Get a Topcoder Member Profile Url
      * @param $name vanilla user name
@@ -1250,11 +1251,11 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
-     * Get a Topcoder Member Profile
+     * Load a Topcoder Member Profile
      * @param $name vanilla user name
      * @return null|string  photo url
      */
-    public static function getTopcoderProfile($name) {
+    private static function loadTopcoderProfile($name) {
         $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').c('Plugins.Topcoder.MemberApiURI');
         $memberData = @file_get_contents($topcoderMembersApiUrl.'/'.$name);
         if($memberData === false) {
@@ -1268,27 +1269,6 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         return null;
     }
-
-    /**
-     * Get a Topcoder Member Id by Topcoder handle
-     * @param $name vanilla user name
-     * @return null|int
-     */
-    public static function getTopcoderId($name) {
-        $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').c('Plugins.Topcoder.MemberApiURI');
-        $memberData = @file_get_contents($topcoderMembersApiUrl.'/'.$name);
-        if($memberData === false) {
-            // Handle errors (e.g. 404 and others)
-            return null;
-        }
-        $memberResponse = json_decode($memberData);
-        //Use a photo of Topcoder member if the member with the given user name exists and photoUrl is not null
-        if($memberResponse->result->status === 200 && $memberResponse->result->content !== null) {
-            return  $memberResponse->result->content->userId;
-        }
-        return null;
-    }
-
     /**
      * Generate machine to machine token from Auth0
      * @return null|String m2m token
@@ -1395,7 +1375,7 @@ class TopcoderPlugin extends Gdn_Plugin {
     /**
      * Get a Topcoder Roles
      *
-     * @param $name Topcoder Handle
+     * @param $topcoderUserId
      * @return null|string  array of role objects. Example of role object:
      *  {
      *       "id":"3",
@@ -1406,9 +1386,8 @@ class TopcoderPlugin extends Gdn_Plugin {
      *       "roleName":"Connect Support"
      *   }
      */
-    public static function getTopcoderRoles($name) {
-        $topcoderId =  TopcoderPlugin::getTopcoderId($name);
-        if ($topcoderId) {
+    private static function loadTopcoderRoles($topcoderUserId) {
+        if ($topcoderUserId) {
             $token = TopcoderPlugin::getM2MToken();
             if ($token) {
                 $topcoderRolesApiUrl = c('Plugins.Topcoder.BaseApiURL') . c('Plugins.Topcoder.RoleApiURI');
@@ -1417,7 +1396,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                     'header' => 'Authorization: Bearer ' .$token
                 ));
                 $context = stream_context_create($options);
-                $rolesData = file_get_contents($topcoderRolesApiUrl . '?filter=subjectID%3D' . $topcoderId, false, $context);
+                $rolesData = file_get_contents($topcoderRolesApiUrl . '?filter=subjectID%3D' . $topcoderUserId, false, $context);
                 if ($rolesData === false) {
                     // Handle errors (e.g. 404 and others)
                     logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'getTopcoderRoles', "Couldn't get Topcoder roles".json_encode($http_response_header));
@@ -1432,6 +1411,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         return false;
     }
+
 
     /**
      * Get all Topcoder Roles
@@ -1477,24 +1457,20 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $name  username
      * @return boolean true if User has Topcoder admin role
      */
-    public static function hasTopcoderAdminRole($name) {
-        $roles =  TopcoderPlugin::getTopcoderRoles($name);
-        if($roles) {
-            $adminRoleNames = array("admin", "administrator");
-            foreach ($roles as $role) {
-                if (in_array(strtolower($role->roleName), $adminRoleNames)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    public static function hasTopcoderAdminRole($user) {
+        $profile =  TopcoderPlugin::getTopcoderUser($user);
+        $isAdmin = val('IsAdmin', $profile, false);
+        return $isAdmin;
     }
+
 
     /**
      * Get a photo url from Topcoder Member Profile
      * @param $name vanilla user name
      * @return null|string  photo url
      */
+    //TODO: remove , not found usages
+    /*
     public static function getTopcoderPhotoUrl($name) {
         $topcoderProfile = self::getTopcoderProfile($name);
         if($topcoderProfile !== null) {
@@ -1502,14 +1478,53 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         return null;
     }
+*/
+    /**
+     * Load Topcoder User Details from Topcoder API.
+     * Data is cached if a cache is enabled
+     * @param $vanillaUser
+     * @return array|void
+     */
+    private static function loadTopcoderUserDetails($vanillaUser) {
+        $userID = val('UserID', $vanillaUser);
+        $username = val('Name', $vanillaUser);
 
+        if($userID == 0) { // Guest
+            return;
+        }
+        $cachedUser = ['UserID' => $userID, 'Name' => $username];
+        // Topcoder User profile: userId, handle, photoURL,
+        $topcoderProfile =  self::loadTopcoderProfile($username);
+        if($topcoderProfile) {
+            $cachedUser['TopcoderUserID'] = $topcoderProfile->userId;
+            $cachedUser['PhotoUrl'] = $topcoderProfile->photoURL;
+            $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
+            if($topcoderRoles) {
+                $roleNames = array_column($topcoderRoles, 'roleName');
+                $lowerRoleNames = array_map('strtolower', $roleNames);
+                $cachedUser['Roles'] = $roleNames;
+                $cachedUser['IsAdmin'] = in_array("admin", $lowerRoleNames) || in_array("administrator", $lowerRoleNames);
+            }
+
+            $topcoderRating = self::loadTopcoderRating($username); //loaded by handle
+            if($topcoderRating) {
+                $cachedUser['Rating'] = $topcoderRating;
+            }
+        }
+
+       if(Gdn_Cache::activeEnabled()) {
+           $result = self::topcoderUserCache($cachedUser);
+       }
+       // Return data if it has n't been cached before.
+       return $cachedUser;
+    }
 
     /**
-     * Get a Tocoder rating from Topcoder Member Statistics
-     * @param $name
+     * Get a Topcoder rating from Topcoder Member Statistics
+     * @param $name Vanilla Name /Topcoder Handle
      * @return int|null
      */
-    public static function getTopcoderRating($name) {
+    private static function loadTopcoderRating($name) {
         $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').c('Plugins.Topcoder.MemberApiURI');
         $memberStatsData = @file_get_contents($topcoderMembersApiUrl.'/'.$name.'/stats');
         if($memberStatsData === false) {
@@ -1551,10 +1566,11 @@ class TopcoderPlugin extends Gdn_Plugin {
 
 
     public static function getUserPhotoUrl($user) {
-        $name = val('Name', $user, null);
-        if ($name !== null) {
-            $photoUrl = self::getTopcoderPhotoUrl($name);
-            return $photoUrl === null? UserModel::getDefaultAvatarUrl(): $photoUrl;
+        $userID = val('UserID', $user, 0);
+        if ($userID > 0) {
+            $topcoderProfile =  self::getTopcoderUser($userID);
+            $photoUrl = val('PhotoUrl', $topcoderProfile);
+            return !$photoUrl? UserModel::getDefaultAvatarUrl(): $photoUrl;
         }
         return UserModel::getDefaultAvatarUrl();
     }
@@ -1609,6 +1625,58 @@ class TopcoderPlugin extends Gdn_Plugin {
         return $roles;
     }
 
+    /**
+     * Get Topcoder User Details (PhotoUrl, Rating, IsAdmin and others)
+     * @param $user
+     * @return array|false|mixed|void
+     */
+    public static function getTopcoderUser($user) {
+        if(is_numeric($user)) {
+            $userModel = new UserModel();
+            $user  = $userModel->getID($user, DATASET_TYPE_ARRAY);
+        }
+        $userID = val('UserID', $user);
+        $topcoderUser = self::getTopcoderUserFromCache($userID);
+
+        // Not found in a cache or a cache is not active
+        if(!$topcoderUser) {
+            $topcoderUser = self::loadTopcoderUserDetails($user);
+        }
+
+        return $topcoderUser;
+    }
+
+    private static function getTopcoderUserFromCache($userID) {
+        if(!Gdn_Cache::activeEnabled()) {
+            return false;
+        }
+
+        $handleKey = formatString(self::CACHE_KEY_TOPCODER_PROFILE, ['UserID' => $userID]);
+        if(!Gdn::cache()->exists($handleKey)) {
+            return false;
+        }
+        $profile = Gdn::cache()->get($handleKey);
+        if ($profile === Gdn_Cache::CACHEOP_FAILURE) {
+            return false;
+        }
+        return $profile;
+    }
+
+    /**
+     * Cache a Topcoder user details.
+     *
+     * @param $userFields
+     * @return bool Returns **true** if the user was cached or **false** otherwise.
+     */
+    private static function topcoderUserCache($userFields) {
+        $cached = true;
+        $userID = val('UserID', $userFields);
+        $userKey = formatString(self::CACHE_KEY_TOPCODER_PROFILE, ['UserID' => $userID]);
+        $cached = $cached & Gdn::cache()->store($userKey, $userFields, [
+                Gdn_Cache::FEATURE_EXPIRY => 3600
+            ]);
+        return $cached;
+    }
 
     // TODO: Debugging issues-108
     public function gdn_dispatcher_beforeDispatch_handler($sender, $args) {
@@ -1618,15 +1686,14 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     public static function log($message, $data = []) {
-        // TODO: Debugging issues-108
-        //if (c('Vanilla.SSO.Debug') || c('Debug')) {
+        if (c('Vanilla.SSO.Debug') || c('Debug')) {
             Logger::event(
                 'topcoder_plugin',
                 Logger::DEBUG,
                 $message,
                 $data
             );
-       // }
+        }
     }
 }
 
@@ -1636,8 +1703,9 @@ if(!function_exists('topcoderRatingCssClass')) {
      *
      * @return string Returns rating css style
      */
-    function topcoderRatingCssClass($name) {
-        $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
+    function topcoderRatingCssClass($user) {
+        $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
+        $topcoderRating = val('Rating', $topcoderProfile, null);
         return TopcoderPlugin::getRatingCssClass($topcoderRating);
     }
 }
@@ -1648,9 +1716,9 @@ if(!function_exists('topcoderRoleCssStyles')) {
      *
      * @return string Returns role css style
      */
-    function topcoderRoleCssStyles($name) {
+    function topcoderRoleCssStyles($user) {
         $topcoderCssClass = '';
-        $isTopcoderAdmin = TopcoderPlugin::hasTopcoderAdminRole($name);
+        $isTopcoderAdmin = TopcoderPlugin::hasTopcoderAdminRole($user);
         if($isTopcoderAdmin) {
             $topcoderCssClass = ' '.'topcoderAdmin' ;
         }
@@ -1693,7 +1761,8 @@ if (!function_exists('userBuilder')) {
         $user->UserID = $row->$userID;
         $user->Name = $row->$name;
 
-        $topcoderPhotoUrl = TopcoderPlugin::getTopcoderPhotoUrl($user->Name);
+        $topcoderProfile =  TopcoderPlugin::getTopcoderUser($user);
+        $topcoderPhotoUrl = val('PhotoUrl', $topcoderProfile);
         if($topcoderPhotoUrl !== null) {
             $user->Photo = $topcoderPhotoUrl;
             $user->PhotoUrl = $topcoderPhotoUrl;
@@ -1758,13 +1827,11 @@ if (!function_exists('userPhoto')) {
         ];
 
         $userLink = userUrl($fullUser);
-        $topcoderProfile = TopcoderPlugin::getTopcoderProfile($name);
+        $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
         if($topcoderProfile !== null) {
             $attributes['target'] = '_blank';
-
-
             $userLink = TopcoderPlugin::getTopcoderProfileUrl($name);
-            $topcoderPhotoUrl = $topcoderProfile->photoURL;
+            $topcoderPhotoUrl = val('PhotoUrl', $topcoderProfile);
             if ($topcoderPhotoUrl !== null) {
                 $photoUrl = $topcoderPhotoUrl;
             }
@@ -1861,13 +1928,14 @@ if (!function_exists('userAnchor')) {
         // Go to Topcoder user profile link instead of Vanilla profile link
         $userUrl = topcoderUserUrl($user, $px);
 
-        $topcoderRating = TopcoderPlugin::getTopcoderRating($name);
+        $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
+        $topcoderRating = val('Rating',$topcoderProfile, false);
         if($topcoderRating != false || $topcoderRating == null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
             $attributes['class'] = $attributes['class'].' '.$coderStyles ;
         }
 
-        $isTopcoderAdmin = TopcoderPlugin::hasTopcoderAdminRole($name);
+        $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
         if($isTopcoderAdmin) {
             $attributes['class'] = $attributes['class'].' '. 'topcoderAdmin' ;
         }
