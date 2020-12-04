@@ -134,6 +134,39 @@ class ReplyToPlugin extends Gdn_Plugin {
         $this->replyToModel->onDeleteComment($Comment);
      }
 
+    public function discussionController_BeforeCalculatingOffsetLimit_handler($sender, $args) {
+        if (!Gdn::session()->isValid()) {
+            return;
+        }
+        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW);
+        if(!$viewMode) {
+            return;
+        }
+
+
+        $discussion = $args['Discussion'];
+        $page = & $args['Page'];
+        $limit = & $args['Limit'];
+        $enableAutoOffset = & $args['EnableAutoOffset'];
+
+        if(!$discussion) {
+            return;
+        }
+
+        if($viewMode === self::VIEW_FLAT) {
+            $page = '';
+            $enableAutoOffset = false;
+        } else {
+            // Show all comment on one page for Tree/Threaded View
+            // Don't set MAX Int
+            $CountComments = val('CountComments', $discussion);
+            $page = '';
+            $limit = $CountComments;
+            $enableAutoOffset = false;
+        }
+    }
+
+
     /**
      * Before the comments are rendered, go through them and work out their (relative) depth and give them classes.
      * @param $sender
