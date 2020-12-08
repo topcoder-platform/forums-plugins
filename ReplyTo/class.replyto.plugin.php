@@ -142,10 +142,8 @@ class ReplyToPlugin extends Gdn_Plugin {
         if(!$viewMode) {
             return;
         }
-
-
         $discussion = $args['Discussion'];
-        $page = & $args['Page'];
+        $offset = & $args['Offset'];
         $limit = & $args['Limit'];
         $enableAutoOffset = & $args['EnableAutoOffset'];
 
@@ -154,14 +152,14 @@ class ReplyToPlugin extends Gdn_Plugin {
         }
 
         if($viewMode === self::VIEW_FLAT) {
-            $page = '';
+            $offset = 0;
             $enableAutoOffset = false;
         } else {
-            // Show all comment on one page for Tree/Threaded View
+            // Show all comment on one offset for Tree/Threaded View
             // Don't set MAX Int
             $CountComments = val('CountComments', $discussion);
-            $page = '';
-            $limit = $CountComments;
+            $offset = 0;
+            $limit = $CountComments > 0? $CountComments: c('Vanilla.Comments.PerPage', 30);;
             $enableAutoOffset = false;
         }
     }
