@@ -1,7 +1,7 @@
 {
-  "key": "Sql",
-  "name": "Sql Plugin",
-  "description": "This plugin allows to execute sql select queries.",
+  "key": "Debug",
+  "name": "Debug Plugin",
+  "description": "This plugin allows to execute sql select queries and retrieve data from cache by key.",
   "version": "1.0.0",
   "documentationUrl": "http://vanilla.topcoder-dev.com",
   "type": "addon",

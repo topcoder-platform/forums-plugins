@@ -1,6 +1,6 @@
 <?php
 
-class SqlPlugin extends Gdn_Plugin {
+class DebugPlugin extends Gdn_Plugin {
 
     public function __construct() {
         parent::__construct();

@@ -1,0 +1,35 @@
+openapi: 3.0.2
+info: Vanilla Cache API
+paths:
+  /cache:
+    get:
+      parameters:
+        - description: a cache key
+          in: query
+          name: key
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            'application/json':
+              schema:
+                items:
+                  $ref: '#/components/schemas/Records'
+                type: array
+          description: Success
+      tags:
+        - Cache
+      summary: Retrieve a key's value from the cache
+  /cache/flush:
+    get:
+      responses:
+        '200':
+          description: TRUE on success or FALSE on failure
+      tags:
+        - Cache
+      summary: Invalidate all items in the cache
+components:
+  schemas:
+    Records:
+      type: object
