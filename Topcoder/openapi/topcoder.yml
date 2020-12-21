@@ -1,0 +1,70 @@
+openapi: 3.0.2
+info:
+  title: Topcoder Categories API
+  description: Topcoder API
+  version: 1.0.0
+paths:
+  '/topcoder/':
+    get:
+      parameters:
+        - in: query
+          name: handle
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            'application/json':
+              schema:
+                items:
+                  $ref: '#/components/schemas/Records'
+                type: array
+          description: Success
+      tags:
+        - Topcoder
+      summary: List Topcoder records.
+  '/topcoder/{userId}/watch/{categoryId}/':
+    put:
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: categoryId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            'application/json':
+              schema:
+                properties:
+                  watched:
+                    description: The category-watched status for the user.
+                    type: boolean
+                required:
+                  - watched
+                type: object
+          description: Success
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                watched:
+                  description: The category-watched status for the user.
+                  type: boolean
+              required:
+                - watched
+              type: object
+        required: true
+      tags:
+        - Topcoder
+components:
+  schemas:
+    Records:
+      type: object

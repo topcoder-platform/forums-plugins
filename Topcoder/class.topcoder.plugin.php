@@ -31,6 +31,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     /** Cache key. */
     const  CACHE_KEY_TOPCODER_PROFILE = 'topcoder.{UserID}';
+    const  CACHE_TOPCODER_KEY_TOPCODER_PROFILE = 'topcoder.{Handle}';
 
     const ROLE_TYPE_TOPCODER = 'topcoder';
     const ROLE_TOPCODER_CONNECT_ADMIN = 'Connect Admin';
@@ -1685,6 +1686,95 @@ class TopcoderPlugin extends Gdn_Plugin {
         ]);
     }
 
+    // Topcoder Cache is used for caching Topcoder Users by handle.
+    // This cache includes Topcoder which might not exist in Vanilla.
+
+    /**
+     *  Get Topcoder Profile from Topcoder Cache which Topcoder Users which might not exist in Vanilla
+     * @param $topcoderHandle
+     * @return array|false|mixed|void
+     */
+    public static function getTopcoderUserByHandle($topcoderHandle) {
+        $topcoderUser = self::getTopcoderUserFromTopcoderCache($topcoderHandle);
+
+        // Not found in a cache or a cache is not active
+        if(!$topcoderUser) {
+            $topcoderUser = self::loadTopcoderUserDetailsByHandle($topcoderHandle);
+        }
+
+        return $topcoderUser;
+    }
+
+    // This cache includes Topcoder which might not exist in Vanilla
+    private static function getTopcoderUserFromTopcoderCache($topcoderHandle) {
+        if(!Gdn_Cache::activeEnabled()) {
+            return false;
+        }
+
+        $handleKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_PROFILE, ['Handle' => $topcoderHandle]);
+        if(!Gdn::cache()->exists($handleKey)) {
+            return false;
+        }
+        $profile = Gdn::cache()->get($handleKey);
+        if ($profile === Gdn_Cache::CACHEOP_FAILURE) {
+            return false;
+        }
+        return $profile;
+    }
+
+    /**
+     * Load Topcoder User Details from Topcoder API.
+     * Data is cached if a cache is enabled
+     * @param $topcoderHandle
+     * @return array|void
+     */
+    private static function loadTopcoderUserDetailsByHandle($topcoderHandle) {
+        if(!$topcoderHandle) {
+            return;
+        }
+        $cachedUser = ['Handle' => $topcoderHandle];
+        // Topcoder User profile: userId, handle, photoURL,
+        $topcoderProfile =  self::loadTopcoderProfile($topcoderHandle);
+        if($topcoderProfile) {
+            $cachedUser['TopcoderUserID'] = $topcoderProfile->userId;
+            $cachedUser['PhotoUrl'] = $topcoderProfile->photoURL;
+            $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
+            if($topcoderRoles) {
+                $roleNames = array_column($topcoderRoles, 'roleName');
+                $lowerRoleNames = array_map('strtolower', $roleNames);
+                $cachedUser['Roles'] = $roleNames;
+                $cachedUser['IsAdmin'] = in_array("admin", $lowerRoleNames) || in_array("administrator", $lowerRoleNames);
+            }
+
+            $topcoderRating = self::loadTopcoderRating($topcoderHandle); //loaded by handle
+            if($topcoderRating) {
+                $cachedUser['Rating'] = $topcoderRating;
+            }
+        }
+
+        if(Gdn_Cache::activeEnabled()) {
+            $result = self::topcoderUserTopcoderCache($cachedUser);
+        }
+        // Return data if it has n't been cached before.
+        return $cachedUser;
+    }
+
+    /**
+     * Cache a Topcoder user details in Topcoder Cache.
+     *
+     * @param $userFields
+     * @return bool Returns **true** if the user was cached or **false** otherwise.
+     */
+    private static function topcoderUserTopcoderCache($userFields) {
+        $cached = true;
+        $handle = val('Handle', $userFields);
+        $userKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_PROFILE, ['Handle' => $handle]);
+        $cached = $cached & Gdn::cache()->store($userKey, $userFields, [
+                Gdn_Cache::FEATURE_EXPIRY => 3600
+            ]);
+        return $cached;
+    }
+
     public static function log($message, $data = []) {
         if (c('Vanilla.SSO.Debug') || c('Debug')) {
             Logger::event(
@@ -2089,3 +2179,109 @@ if (!function_exists('writeActivity')) {
         <?php
     }
 }
+
+if (!function_exists('anchor')) {
+    /**
+     * Builds and returns an anchor tag.
+     * Use topcoderMentionAnchor to build an anchor tag for @mention
+     *
+     * @param $text
+     * @param string $destination
+     * @param string $cssClass
+     * @param array $attributes
+     * @param bool $forceAnchor
+     * @return string
+     */
+    function anchor($text, $destination = '', $cssClass = '', $attributes = [], $forceAnchor = false) {
+
+        if(function_exists('topcoderMentionAnchor') &&
+            strpos($text, "@") === 0 && strpos($destination, '/profile/')) {
+            return topcoderMentionAnchor($text);
+        }
+
+        if (!is_array($cssClass) && $cssClass != '') {
+            $cssClass = ['class' => $cssClass];
+        }
+
+        if ($destination == '' && $forceAnchor === false) {
+            return $text;
+        }
+
+        if (!is_array($attributes)) {
+            $attributes = [];
+        }
+
+        $sSL = null;
+        if (isset($attributes['SSL'])) {
+            $sSL = $attributes['SSL'];
+            unset($attributes['SSL']);
+        }
+
+        $withDomain = false;
+        if (isset($attributes['WithDomain'])) {
+            $withDomain = $attributes['WithDomain'];
+            unset($attributes['WithDomain']);
+        }
+
+        $prefix = substr($destination, 0, 7);
+        if (!in_array($prefix, ['https:/', 'http://', 'mailto:']) && ($destination != '' || $forceAnchor === false)) {
+            $destination = Gdn::request()->url($destination, $withDomain, $sSL);
+        }
+
+        return '<a href="'.htmlspecialchars($destination, ENT_COMPAT, 'UTF-8').'"'.attribute($cssClass).attribute($attributes).'>'.$text.'</a>';
+    }
+}
+
+if (!function_exists('topcoderMentionAnchor')) {
+    /**
+     * Take a Topcoder handle mention, and writes out an anchor of the Topcoder user's name to the Topcoder user's profile.
+     *
+     * @param $mention
+     * @param null $cssClass
+     * @param null $options
+     * @return string
+     */
+    function topcoderMentionAnchor($mention, $cssClass = null, $options = null) {
+        $handle = substr($mention, 1);
+        Logger::event(
+            'TopcoderEditorPlugin',
+            Logger::DEBUG,
+            "topcoderMentionAnchor",
+            ['handle' =>  $handle]
+        );
+
+        if (is_array($cssClass)) {
+            $options = $cssClass;
+            $cssClass = null;
+        }
+
+        $attributes = [
+            'class' => $cssClass,
+            'rel' => val('Rel', $options)
+        ];
+
+        // Go to Topcoder user profile link instead of Vanilla profile link
+        $userUrl = TopcoderPlugin::getTopcoderProfileUrl(rawurlencode($handle));
+
+        Logger::event(
+            'TopcoderEditorPlugin',
+            Logger::DEBUG,
+            "topcoderMentionAnchor",
+            ['url' =>  $userUrl]
+        );
+
+        $topcoderProfile = TopcoderPlugin::getTopcoderUserByHandle($handle);
+        $topcoderRating = val('Rating',$topcoderProfile, false);
+        if($topcoderRating != false || $topcoderRating == null) {
+            $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
+            $attributes['class'] = $attributes['class'].' '.$coderStyles ;
+        }
+
+        $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
+        if($isTopcoderAdmin) {
+            $attributes['class'] = $attributes['class'].' '. 'topcoderAdmin' ;
+        }
+        return '<a href="'.htmlspecialchars(url($userUrl)).'"'.attribute($attributes).'>@'.$handle.'</a>';
+    }
+}
+
