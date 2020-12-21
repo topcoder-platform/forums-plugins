@@ -2243,12 +2243,6 @@ if (!function_exists('topcoderMentionAnchor')) {
      */
     function topcoderMentionAnchor($mention, $cssClass = null, $options = null) {
         $handle = substr($mention, 1);
-        Logger::event(
-            'TopcoderEditorPlugin',
-            Logger::DEBUG,
-            "topcoderMentionAnchor",
-            ['handle' =>  $handle]
-        );
 
         if (is_array($cssClass)) {
             $options = $cssClass;
@@ -2262,13 +2256,6 @@ if (!function_exists('topcoderMentionAnchor')) {
 
         // Go to Topcoder user profile link instead of Vanilla profile link
         $userUrl = TopcoderPlugin::getTopcoderProfileUrl(rawurlencode($handle));
-
-        Logger::event(
-            'TopcoderEditorPlugin',
-            Logger::DEBUG,
-            "topcoderMentionAnchor",
-            ['url' =>  $userUrl]
-        );
 
         $topcoderProfile = TopcoderPlugin::getTopcoderUserByHandle($handle);
         $topcoderRating = val('Rating',$topcoderProfile, false);
