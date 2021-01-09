@@ -32,6 +32,8 @@ class TopcoderPlugin extends Gdn_Plugin {
     /** Cache key. */
     const  CACHE_KEY_TOPCODER_PROFILE = 'topcoder.{UserID}';
     const  CACHE_TOPCODER_KEY_TOPCODER_PROFILE = 'topcoder.{Handle}';
+    const  CACHE_TOPCODER_KEY_TOPCODER_ROLE_RESOURCES = 'topcoder.roleresources';
+    const  CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE_RESOURCES = 'topcoder.challenge.{ChallengeID}.resources';
 
     const ROLE_TYPE_TOPCODER = 'topcoder';
     const ROLE_TOPCODER_CONNECT_ADMIN = 'Connect Admin';
@@ -1320,6 +1322,31 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @return mixed|null
      */
     public function getRoleResources() {
+       $roleResources = self::getRoleResourcesFromCache();
+       if ($roleResources) {
+           return $roleResources;
+       }
+
+       $roleResources = self::loadTopcoderRoleResources();
+       if(Gdn_Cache::activeEnabled() && $roleResources) {
+            self::topcoderRoleResourcesCache($roleResources);
+       }
+       return $roleResources;
+    }
+
+
+    private static function topcoderRoleResourcesCache($roleResources) {
+        return Gdn::cache()->store(self::CACHE_TOPCODER_KEY_TOPCODER_ROLE_RESOURCES,
+                $roleResources, [
+                Gdn_Cache::FEATURE_EXPIRY => 3600
+            ]);
+    }
+
+    /**
+     * Load Topcoder Resource roles
+     * @return mixed|null
+     */
+    private static function loadTopcoderRoleResources() {
         $token = TopcoderPlugin::getM2MToken();
         if ($token) {
             $resourceRolesURI = c('Plugins.Topcoder.ResourceRolesApiURI');
@@ -1344,12 +1371,78 @@ class TopcoderPlugin extends Gdn_Plugin {
        return null;
     }
 
+
     /**
-     * Get Topcoder Challenge Resources
+     * Get Role Resources from cache
+     * @return false|mixed
+     */
+    private static function getRoleResourcesFromCache() {
+        if(!Gdn_Cache::activeEnabled()) {
+            return false;
+        }
+
+        if(!Gdn::cache()->exists(self::CACHE_TOPCODER_KEY_TOPCODER_ROLE_RESOURCES)) {
+            return false;
+        }
+        $roleResources = Gdn::cache()->get(self::CACHE_TOPCODER_KEY_TOPCODER_ROLE_RESOURCES);
+        if ($roleResources === Gdn_Cache::CACHEOP_FAILURE) {
+            return false;
+        }
+        return $roleResources;
+    }
+
+    /**
+     * Get Topcoder Challenge Resources by ChallengeId
      * @param $challengeId
      * @return mixed|null
      */
     public function getChallengeResources($challengeId) {
+        $challengeResources = self::getChallengeResourcesFromCache($challengeId);
+        if ($challengeResources) {
+            return $challengeResources;
+        }
+
+        $challengeResources = self::loadChallengeResources($challengeId);
+        if(Gdn_Cache::activeEnabled() && $challengeResources) {
+            self::topcoderChallengeResourcesCache( $challengeId, $challengeResources);
+        }
+        return $challengeResources;
+    }
+
+    /**
+     * Load challenge resources from cache
+     * @param $challengeID
+     * @return false|mixed
+     */
+    private static function getChallengeResourcesFromCache($challengeID) {
+        if(!Gdn_Cache::activeEnabled()) {
+            return false;
+        }
+
+        $handleKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE_RESOURCES, ['ChallengeID' => $challengeID]);
+        if(!Gdn::cache()->exists($handleKey)) {
+            return false;
+        }
+        $challengeResources = Gdn::cache()->get($handleKey);
+        if ($challengeResources === Gdn_Cache::CACHEOP_FAILURE) {
+            return false;
+        }
+        return $challengeResources;
+    }
+
+    private static function topcoderChallengeResourcesCache($challengeID, $challengeResources) {
+        $challengeKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE_RESOURCES, ['ChallengeID' => $challengeID]);
+        return Gdn::cache()->store($challengeKey , $challengeResources, [
+                Gdn_Cache::FEATURE_EXPIRY => 3600
+            ]);
+    }
+
+    /**
+     * Load Topcoder Challenge Resources by Challenge ID
+     * @param $challengeId
+     * @return mixed|null
+     */
+    private static function loadChallengeResources($challengeId) {
         $token = TopcoderPlugin::getM2MToken();
         if ($token) {
             $resourcesURI = c('Plugins.Topcoder.ResourcesApiURI');
@@ -1585,8 +1678,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             $currentProjectRoles = $this->getTopcoderProjectRoles(Gdn::session()->User, $resources, $roleResources);
             if($currentProjectRoles) {
                 $currentProjectRoles =  array_map('strtolower',$currentProjectRoles);
-            } else {
-
             }
 
             $sender->Data['ChallengeResources'] = $resources;
@@ -1614,7 +1705,8 @@ class TopcoderPlugin extends Gdn_Plugin {
         $roles = [];
         if (isset($resources) && isset($roleResources)) {
             $allResourcesByMember = array_filter($resources, function ($k) use ($topcoderUsername) {
-                return $k->memberHandle == $topcoderUsername;
+                $memberHandle = val('memberHandle', $k, null);
+                return $memberHandle && $memberHandle == $topcoderUsername;
             });
             foreach ($allResourcesByMember as $resource) {
                 $roleResource = array_filter($roleResources, function ($k) use ($resource) {
