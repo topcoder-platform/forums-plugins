@@ -105,7 +105,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $signInUrl = getenv('TOPCODER_PLUGIN_SIGNIN_URL');
         $signOutUrl = getenv('TOPCODER_PLUGIN_SIGNOUT_URL');
         if($signInUrl === false) {
-            $signInUrl =$topcoderSSOAuth0Url.'?retUrl='.urlencode('https://'.$_SERVER['SERVER_NAME'].'/');
+            $signInUrl =$topcoderSSOAuth0Url.'?retUrl={target}';
         }
         if($signOutUrl === false) {
             $signOutUrl =$topcoderSSOAuth0Url.'?logout=true&retUrl='.urlencode('https://'.$_SERVER['SERVER_NAME'].'/');
