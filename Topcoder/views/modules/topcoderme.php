@@ -46,13 +46,16 @@ if ($Session->isValid()):
     $CountNotifications = $User->CountNotifications;
     $CNotifications = is_numeric($CountNotifications) && $CountNotifications > 0 ? '<span class="Alert NotificationsAlert">'.$CountNotifications.'</span>' : '';
 
-    echo '<span class="ToggleFlyout" rel="/profile/notificationspopin?TransientKey='.htmlspecialchars(urlencode($transientKey)).'">';
-    echo anchor(sprite('SpNotifications', 'Sprite Sprite16', t('Notifications')).$CNotifications, userUrl($User), 'MeButton FlyoutButton js-clear-notifications', ['title' => t('Notifications'), 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
-    echo sprite('SpFlyoutHandle', 'Arrow');
-    echo '<div class="Flyout FlyoutMenu Flyout-withFrame"></div></span>';
-
+    $showNotifications = false;
+    if($showNotifications) {
+        echo '<span class="ToggleFlyout" rel="/profile/notificationspopin?TransientKey=' . htmlspecialchars(urlencode($transientKey)) . '">';
+        echo anchor(sprite('SpNotifications', 'Sprite Sprite16', t('Notifications')) . $CNotifications, userUrl($User), 'MeButton FlyoutButton js-clear-notifications', ['title' => t('Notifications'), 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
+        echo sprite('SpFlyoutHandle', 'Arrow');
+        echo '<div class="Flyout FlyoutMenu Flyout-withFrame"></div></span>';
+    }
     // Inbox
-    if (Gdn::addonManager()->lookupAddon('conversations')) {
+    $showInbox = false;
+    if ($showInbox && Gdn::addonManager()->lookupAddon('conversations')) {
         $CountInbox = val('CountUnreadConversations', Gdn::session()->User);
         $CInbox = is_numeric($CountInbox) && $CountInbox > 0 ? ' <span class="Alert">'.$CountInbox.'</span>' : '';
         echo '<span class="ToggleFlyout" rel="/messages/popin">';
@@ -62,7 +65,8 @@ if ($Session->isValid()):
     }
 
     // Bookmarks
-    if (Gdn::addonManager()->lookupAddon('Vanilla')) {
+    $showBookmarks = false;
+    if ($showBookmarks && Gdn::addonManager()->lookupAddon('Vanilla')) {
         echo '<span class="ToggleFlyout" rel="/discussions/bookmarkedpopin">';
         echo anchor(sprite('SpBookmarks', 'Sprite Sprite16', t('Bookmarks')), '/discussions/bookmarked', 'MeButton FlyoutButton', ['title' => t('Bookmarks'), 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
         echo sprite('SpFlyoutHandle', 'Arrow');
@@ -76,12 +80,12 @@ if ($Session->isValid()):
 
     if ($useNewFlyouts) {
         $imgUrl = userPhotoUrl($User);
-        $triggerIcon = "<img class='ProfilePhoto ProfilePhotoSmall' src='$imgUrl'/>";
+        $triggerIcon = "<span><img class='ProfilePhoto ProfilePhotoSmall' src='$imgUrl'/><span class='Username'>".$User->Name."</span><span class='icon icon-chevron-down'></span></span>";
     } else {
         $triggerIcon = sprite('SpOptions', 'Sprite Sprite16', $triggerTitle);
     }
 
-    $dropdown->setTrigger('', 'anchor', 'MeButton FlyoutButton MeButton-user', $triggerIcon, '/profile', ['title' => $triggerTitle, 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
+    $dropdown->setTrigger('', 'anchor', 'MeButton FlyoutButton MeButton-user TopcoderMeButton', $triggerIcon, '/profile', ['title' => $triggerTitle, 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
     $editModifiers['listItemCssClasses'] = ['EditProfileWrap', 'link-editprofile'];
     $preferencesModifiers['listItemCssClasses'] = ['EditProfileWrap', 'link-preferences'];
 
@@ -121,10 +125,11 @@ else:
 
     echo '<div class="SignInLinks">';
 
-    echo anchor(t('Sign In'), signInUrl($this->_Sender->SelfUrl), (signInPopup() ? ' SignInPopup' : ''), ['rel' => 'nofollow']);
-    $Url = registerUrl($this->_Sender->SelfUrl);
-    if (!empty($Url))
-        echo bullet(' ').anchor(t('Register'), $Url, 'ApplyButton', ['rel' => 'nofollow']).' ';
+    echo anchor(t('Login'), signInUrl($this->_Sender->SelfUrl), (signInPopup() ? ' SignInPopup' : ''), ['rel' => 'nofollow']);
+    // $Url = registerUrl($this->_Sender->SelfUrl);
+    // if (!empty($Url)) {
+       // echo bullet(' ').anchor(t('Register'), $Url, 'ApplyButton', ['rel' => 'nofollow']).' ';
+    // }
     echo '</div>';
 
     echo ' <div class="SignInIcons">';
