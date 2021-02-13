@@ -2096,6 +2096,7 @@ if (!function_exists('userAnchor')) {
         }
 
         $px = val('Px', $options, '');
+        $userID = $px ? val($px.'ID', $user) : val('UserID', $user);
         $name = val($px.'Name', $user, t('Unknown'));
         $text = val('Text', $options, htmlspecialchars($name)); // Allow anchor text to be overridden.
 
@@ -2110,7 +2111,7 @@ if (!function_exists('userAnchor')) {
         // Go to Topcoder user profile link instead of Vanilla profile link
         $userUrl = topcoderUserUrl($user, $px);
 
-        $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
+        $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
         $topcoderRating = val('Rating',$topcoderProfile, false);
         if($topcoderRating != false || $topcoderRating == null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
