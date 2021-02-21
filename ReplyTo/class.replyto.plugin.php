@@ -203,7 +203,7 @@ class ReplyToPlugin extends Gdn_Plugin {
 
         //Check permission
         if (isset($discussion->PermissionCategoryID)) {
-            $CategoryID = $discussion->CategoryPermissionID;
+            $CategoryID = val('CategoryPermissionID', $discussion);
         } else {
             $CategoryID = $discussion->CategoryID;
         }
