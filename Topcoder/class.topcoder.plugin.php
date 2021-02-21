@@ -1684,9 +1684,9 @@ class TopcoderPlugin extends Gdn_Plugin {
             $sender->Data['ChallengeRoleResources'] = $roleResources;
             $sender->Data['ChallengeCurrentUserProjectRoles'] = $currentProjectRoles;
             $sender->Data['ChallengeChallengeID'] = $challengeID;
-            if($sender->GroupModel) {
-                $sender->GroupModel->setCurrentUserTopcoderProjectRoles($currentProjectRoles);
-            }
+            // if($sender->GroupModel) {
+            //   $sender->GroupModel->setCurrentUserTopcoderProjectRoles($currentProjectRoles);
+            // }
             self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'currentUser' => $currentProjectRoles,
                 'Topcoder Resources' => $resources , 'Topcoder RoleResources'
                 => $roleResources,]);
