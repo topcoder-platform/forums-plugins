@@ -44,15 +44,16 @@ if ($Session->isValid()):
     echo '<div class="MeMenu">';
     // Notifications
     $CountNotifications = $User->CountNotifications;
-    $CNotifications = is_numeric($CountNotifications) && $CountNotifications > 0 ? '<span class="Alert NotificationsAlert">'.$CountNotifications.'</span>' : '';
-
-    $showNotifications = false;
-    if($showNotifications) {
-        echo '<span class="ToggleFlyout" rel="/profile/notificationspopin?TransientKey=' . htmlspecialchars(urlencode($transientKey)) . '">';
-        echo anchor(sprite('SpNotifications', 'Sprite Sprite16', t('Notifications')) . $CNotifications, userUrl($User), 'MeButton FlyoutButton js-clear-notifications', ['title' => t('Notifications'), 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
-        echo sprite('SpFlyoutHandle', 'Arrow');
-        echo '<div class="Flyout FlyoutMenu Flyout-withFrame"></div></span>';
+    // $CNotifications = is_numeric($CountNotifications) && $CountNotifications > 0 ? '<span class="Alert NotificationsAlert">'.$CountNotifications.'</span>' : '';
+    echo '<span class="ToggleFlyout" rel="/profile/notificationspopin?TransientKey=' . htmlspecialchars(urlencode($transientKey)) . '">';
+    $notificationImage = '<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><path fill="#FFF" fill-rule="nonzero" d="M10 14c0 1.1-.9 2-2 2s-2-.9-2-2h4zm5-3c.6 0 1 .4 1 1s-.4 1-1 1H1c-.6 0-1-.4-1-1s.4-1 1-1h.5C2.2 10.3 3 9.3 3 8V5c0-2.8 2.2-5 5-5s5 2.2 5 5v3c0 1.3.8 2.3 1.5 3h.5z" id="a"></path></g></svg>';
+    echo anchor($notificationImage, userUrl($User), 'MeButton FlyoutButton MeButton-notifications js-clear-notifications', ['title' => t('Notifications'), 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
+    //echo anchor(sprite('SpNotifications', 'Sprite Sprite16', t('Notifications')) . $CNotifications, userUrl($User), 'MeButton FlyoutButton MeButton-notifications js-clear-notifications', ['title' => t('Notifications'), 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
+    if(is_numeric($CountNotifications) && $CountNotifications > 0){
+        echo sprite('SpAlert', 'Sprite');
     }
+    echo '<div class="Flyout FlyoutMenu Flyout-withFrame"></div></span>';
+
     // Inbox
     $showInbox = false;
     if ($showInbox && Gdn::addonManager()->lookupAddon('conversations')) {
@@ -85,34 +86,58 @@ if ($Session->isValid()):
         $triggerIcon = sprite('SpOptions', 'Sprite Sprite16', $triggerTitle);
     }
 
-    $dropdown->setTrigger('', 'anchor', 'MeButton FlyoutButton MeButton-user TopcoderMeButton', $triggerIcon, '/profile', ['title' => $triggerTitle, 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true"]);
-    $editModifiers['listItemCssClasses'] = ['EditProfileWrap', 'link-editprofile'];
-    $preferencesModifiers['listItemCssClasses'] = ['EditProfileWrap', 'link-preferences'];
+    $dropdown->setTrigger('', 'anchor', 'MeButton FlyoutButton MeButton-user TopcoderMeButton', $triggerIcon, '/profile', ['title' => $triggerTitle, 'tabindex' => '0', "role" => "button", "aria-haspopup" => "true", "id"=>"meButton"]);
 
-    $dropdown->addLinkIf(hasViewProfile(Gdn::session()->UserID), t('View Profile'), '/profile', 'profile.view', '', [], $editModifiers);
-    $dropdown->addLinkIf(hasEditProfile(Gdn::session()->UserID), t('Preferences'), '/profile/preferences', 'profile.preferences', '', [], $preferencesModifiers);
+    $emptyTopModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonTopMItem'];
+    $dropdown->addText('', '', '', '', $emptyTopModifiers);
 
-    $applicantModifiers = $ApplicantCount > 0 ? ['badge' => $ApplicantCount] : [];
-    $applicantModifiers['listItemCssClasses'] = ['link-applicants'];
-    $modModifiers = $ModerationCount > 0 ? ['badge' => $ModerationCount] : [];
-    $modModifiers['listItemCssClasses'] = ['link-moderation'];
-    $spamModifiers['listItemCssClasses'] = ['link-spam'];
-    $dashboardModifiers['listItemCssClasses'] = ['link-dashboard'];
-    $signoutModifiers['listItemCssClasses'] = ['link-signout', 'SignInOutWrap', 'SignOutWrap'];
+    $profileHtml = '<div class="flex middle"><img src="' . $imgUrl . '" width="60" class="avatar" alt="avatar">
+    <div class="flex column left">
+        <span class="handle">' . Gdn::session()->User->Name . '</span>
+        <span class="email">' . Gdn::session()->User->Email . '</span>
+    </div></div>';
+    $profilesModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonProfileMItem'];
+    $dropdown->addLink($profileHtml, 'https://topcoder.com/members/'.Gdn::session()->User->Name, '','link-profile-details flex middle', '', $profilesModifiers);
 
-    $spamPermission = $Session->checkPermission(['Garden.Settings.Manage', 'Garden.Moderation.Manage', 'Moderation.ModerationQueue.Manage'], false);
-    $modPermission = $Session->checkPermission(['Garden.Settings.Manage', 'Garden.Moderation.Manage', 'Moderation.ModerationQueue.Manage'], false);
-    $dashboardPermission = $Session->checkPermission(['Garden.Settings.View', 'Garden.Settings.Manage'], false);
+    $switchToCommunityHtml = '<img class="switch-icon" src="https://www.topcoder.com/wp-content/themes/tc3-marketing/nav/image/icon-switch-business.svg" alt="switch">
+    <span class="switch-to-business">Switch to BUSINESS</span>';
+    $switchToCommunityModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonSwitchToBusinessMItem'];
+    $dropdown->addLink($switchToCommunityHtml, 'https://www.topcoder.com', '', 'switch-to-business middle', '', $switchToCommunityModifiers);
 
-    $dropdown->addLinkIf('Garden.Users.Approve', t('Applicants'), '/dashboard/user/applicants', 'moderation.applicants', '', [], $applicantModifiers);
-    $dropdown->addLinkIf($spamPermission, t('Spam Queue'), '/dashboard/log/spam', 'moderation.spam', '', [], $spamModifiers);
-    $dropdown->addLinkIf($modPermission, t('Moderation Queue'), '/dashboard/log/moderation', 'moderation.moderation', '', [], $modModifiers);
-    $dropdown->addLinkIf($dashboardPermission, t('Dashboard'), '/dashboard/settings', 'dashboard.dashboard', '', [], $dashboardModifiers);
+    //  $editModifiers['listItemCssClasses'] = ['EditProfileWrap', 'link-editprofile'];
+    //  $dropdown->addLinkIf(hasViewProfile(Gdn::session()->UserID), t('View Profile'), '/profile', 'profile.view', '', [], $editModifiers);
 
-    $dropdown->addLink(t('Sign Out'), signOutUrl(), 'entry.signout', '', [], $signoutModifiers);
+    $preferencesModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonSettingsItem'];
+    $dropdown->addLinkIf(hasEditProfile(Gdn::session()->UserID), 'Settings', '/profile/preferences', 'profile.preferences', '', [], $preferencesModifiers);
+
+    // $applicantModifiers = $ApplicantCount > 0 ? ['badge' => $ApplicantCount] : [];
+    // $applicantModifiers['listItemCssClasses'] = ['link-applicants'];
+    //  $modModifiers = $ModerationCount > 0 ? ['badge' => $ModerationCount] : [];
+    //  $modModifiers['listItemCssClasses'] = ['link-moderation'];
+    //  $spamModifiers['listItemCssClasses'] = ['link-spam'];
+    //  $dashboardModifiers['listItemCssClasses'] = ['link-dashboard'];
+    $helpModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonHelpItem'];
+    $signoutModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonSignOutItem'];
+
+    //  $spamPermission = $Session->checkPermission(['Garden.Settings.Manage', 'Garden.Moderation.Manage', 'Moderation.ModerationQueue.Manage'], false);
+    //  $modPermission = $Session->checkPermission(['Garden.Settings.Manage', 'Garden.Moderation.Manage', 'Moderation.ModerationQueue.Manage'], false);
+    //  $dashboardPermission = $Session->checkPermission(['Garden.Settings.View', 'Garden.Settings.Manage'], false);
+
+    // $dropdown->addLinkIf('Garden.Users.Approve', t('Applicants'), '/dashboard/user/applicants', 'moderation.applicants', '', [], $applicantModifiers);
+    //  $dropdown->addLinkIf($spamPermission, t('Spam Queue'), '/dashboard/log/spam', 'moderation.spam', '', [], $spamModifiers);
+    //  $dropdown->addLinkIf($modPermission, t('Moderation Queue'), '/dashboard/log/moderation', 'moderation.moderation', '', [], $modModifiers);
+    //  $dropdown->addLinkIf($dashboardPermission, t('Dashboard'), '/dashboard/settings', 'dashboard.dashboard', '', [], $dashboardModifiers);
+
+    $dropdown->addLink('Help', 'https://help.topcoder.com/hc/en-us', 'topcoder.help', '', [], $helpModifiers);
+    $dividerModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonDividerMItem'];
+    $dropdown->addLink('Log Out', signOutUrl(), 'entry.signout', '', [], $signoutModifiers);
+
+    $emptyBottomModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonBottomMItem'];
+    $dropdown->addText('', 'entry.bottom', '', '', $emptyBottomModifiers);
 
     $this->EventArguments['Dropdown'] = &$dropdown;
-    $this->fireEvent('FlyoutMenu');
+    $this->fireEvent('FlyoutMenu'); ?>
+<?php
     echo $dropdown;
     if ($useNewFlyouts) {
         echo "<button class='MeBox-mobileClose'>×</button>";
