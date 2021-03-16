@@ -1559,22 +1559,32 @@ class TopcoderPlugin extends Gdn_Plugin {
 
 
     /**
-     * Get a photo url from Topcoder Member Profile
-     * @param $name vanilla user name
-     * @return null|string  photo url
+     * Check if the list of Topcoder roles includes Topcoder admin roles
+     * @param false $topcoderRoles
+     * @return bool true, if the list of Topcoder roles includes at least one Topcoder admin role
      */
-    //TODO: remove , not found usages
-    /*
-    public static function getTopcoderPhotoUrl($name) {
-        $topcoderProfile = self::getTopcoderProfile($name);
-        if($topcoderProfile !== null) {
-            return  $topcoderProfile->photoURL;
+    private static function isTopcoderAdmin($topcoderRoles = false) {
+        if($topcoderRoles) {
+            $roleNames = array_column($topcoderRoles, 'roleName');
+            $lowerRoleNames = array_map('strtolower', $roleNames);
+            return count(array_intersect($lowerRoleNames, ["connect manager", "admin", "administrator"])) > 0;
         }
-        return null;
+
+        return false;
     }
-*/
+
+    /**
+     * Get Topcoder Role names
+     * @param false $topcoderRoles
+     * @return array|false|null
+     */
+    private static function getTopcoderRoleNames($topcoderRoles = false) {
+        return $topcoderRoles ? array_column($topcoderRoles, 'roleName') : [];
+    }
+
     /**
      * Load Topcoder User Details from Topcoder API.
+     * User is registered in Vanilla
      * Data is cached if a cache is enabled
      * @param $vanillaUser
      * @return array|void
@@ -1593,13 +1603,8 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cachedUser['TopcoderUserID'] = $topcoderProfile->userId;
             $cachedUser['PhotoUrl'] = $topcoderProfile->photoURL;
             $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
-            if($topcoderRoles) {
-                $roleNames = array_column($topcoderRoles, 'roleName');
-                $lowerRoleNames = array_map('strtolower', $roleNames);
-                $cachedUser['Roles'] = $roleNames;
-                $cachedUser['IsAdmin'] = in_array("admin", $lowerRoleNames) || in_array("administrator", $lowerRoleNames);
-            }
-
+            $cachedUser['Roles'] = self::getTopcoderRoleNames($topcoderRoles);
+            $cachedUser['IsAdmin'] = self::isTopcoderAdmin($topcoderRoles);
             $topcoderRating = self::loadTopcoderRating($username); //loaded by handle
             if($topcoderRating) {
                 $cachedUser['Rating'] = $topcoderRating;
@@ -1815,7 +1820,8 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
-     * Load Topcoder User Details from Topcoder API.
+     * Load Topcoder User Details by Topcoder handle from Topcoder API and add data in Topcoder User cache.
+     * Topcoder handles are used in mentions but Topcoder Users may not register in Vanilla.
      * Data is cached if a cache is enabled
      * @param $topcoderHandle
      * @return array|void
@@ -1831,13 +1837,8 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cachedUser['TopcoderUserID'] = $topcoderProfile->userId;
             $cachedUser['PhotoUrl'] = $topcoderProfile->photoURL;
             $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
-            if($topcoderRoles) {
-                $roleNames = array_column($topcoderRoles, 'roleName');
-                $lowerRoleNames = array_map('strtolower', $roleNames);
-                $cachedUser['Roles'] = $roleNames;
-                $cachedUser['IsAdmin'] = count(array_intersect($lowerRoleNames, ["connect manager", "admin", "administrator"])) > 0;
-            }
-
+            $cachedUser['Roles'] = self::getTopcoderRoleNames($topcoderRoles);
+            $cachedUser['IsAdmin'] = self::isTopcoderAdmin($topcoderRoles);
             $topcoderRating = self::loadTopcoderRating($topcoderHandle); //loaded by handle
             if($topcoderRating) {
                 $cachedUser['Rating'] = $topcoderRating;
