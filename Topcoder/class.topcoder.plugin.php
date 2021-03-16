@@ -1835,7 +1835,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $roleNames = array_column($topcoderRoles, 'roleName');
                 $lowerRoleNames = array_map('strtolower', $roleNames);
                 $cachedUser['Roles'] = $roleNames;
-                $cachedUser['IsAdmin'] = in_array("admin", $lowerRoleNames) || in_array("administrator", $lowerRoleNames);
+                $cachedUser['IsAdmin'] = count(array_intersect($lowerRoleNames, ["connect manager", "admin", "administrator"])) > 0;
             }
 
             $topcoderRating = self::loadTopcoderRating($topcoderHandle); //loaded by handle
