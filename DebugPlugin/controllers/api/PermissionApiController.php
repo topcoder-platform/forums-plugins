@@ -9,7 +9,7 @@ use Garden\Web\Exception\ServerException;
 use Vanilla\ApiUtils;
 
 /**
- * SQL API Controller for the `/sql` resource.
+ * Permission API Controller for the `/permission` resource.
  */
 class PermissionApiController extends AbstractApiController {
 
