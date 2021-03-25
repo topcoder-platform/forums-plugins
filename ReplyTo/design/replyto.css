@@ -3,8 +3,11 @@
     display: inline-block;
     line-height: 1.5;
 }
+.MessageList .ItemDiscussion .Item-Body .Controls a.ReplyViewOptionLink, .ReplyViewOptions .ReplyViewOptionLink {
+    color: #137d60;
+}
 
-.ReplyViewOptions a.Active {
+.MessageList .ItemDiscussion .Item-Body .Controls a.ReplyViewOptionLink.Active, .ReplyViewOptions .ReplyViewOptionLink.Active {
     color: #696969;
     font-weight: 800;
 }

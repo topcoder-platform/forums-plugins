@@ -71,7 +71,7 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @param $sender
      * @param $args
      */
-    public function base_Replies_handler($sender, $args){
+    public function base_InlineDiscussionOptionsLeft_handler($sender, $args){
         $discussion = $sender->data('Discussion');
         if (!$discussion) {
             return;
@@ -84,10 +84,44 @@ class ReplyToPlugin extends Gdn_Plugin {
         $discussionUrl = discussionUrl($discussion, '', '/');
         $viewMode = self::getViewMode();
 
-        echo '<div class="ReplyViewOptions"><span class="MLabel">View:&nbsp</span>';
-        echo anchor('Threaded', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_THREADED, $viewMode == self::VIEW_THREADED?'Active':'').'&nbsp;&nbsp;|&nbsp;&nbsp;';
-        echo anchor('Flat', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_FLAT, $viewMode == self::VIEW_FLAT?'Active':'');
-        echo '</div>';
+        echo '<span class="ReplyViewOptions">';
+        echo '<span class="MLabel">View:&nbsp</span>';
+        echo anchor('Threaded', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_THREADED, $viewMode == self::VIEW_THREADED?'ReplyViewOptionLink Active':'ReplyViewOptionLink').'&nbsp;&nbsp;|&nbsp;&nbsp;';
+        echo anchor('Flat', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_FLAT, $viewMode == self::VIEW_FLAT?'ReplyViewOptionLink Active':'ReplyViewOptionLink');
+        echo '</span>';
+    }
+
+    public function base_inlineCommentOptionsRight_handler($sender, $args) {
+        ReplyToPlugin::log('base_inlineCommentOptionsRight_handler', []);
+
+        if (!Gdn::Session()->isValid()) {
+            return;
+        }
+
+        $discussion = $sender->data('Discussion');
+        $isClosed = ((int)$discussion->Closed) == 1;
+        if ($isClosed) {
+            return;
+        }
+
+        //Check permission
+        $CategoryID = val('PermissionCategoryID', $discussion) ? val('PermissionCategoryID', $discussion) : val('CategoryID', $discussion);
+
+        // Can the user comment on this category, and is the discussion open for comments?
+        if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
+            return;
+        }
+
+        $viewMode = self::getViewMode();
+        $comment = &$args['Comment'];
+        $items = & $args['Items'];
+        $commentID = val('CommentID', $comment);
+        if(empty($items)) {
+            $items = [];
+        }
+        array_push( $items, anchor(
+                t('Reply'),
+                url("/?ParentCommentID=".$commentID."&view=".$viewMode, false), 'ReplyComment'));
     }
 
     /**
@@ -208,6 +242,7 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
 
+        /*
         $options = &$args['CommentOptions'];
         $comment = &$args['Comment'];
         $options['ReplyToComment'] = [
@@ -229,6 +264,7 @@ class ReplyToPlugin extends Gdn_Plugin {
                 $options[$key]['Url'] = $currentUrl.'?view='.$viewMode;
             }
         }
+        */
     }
 
     /**
