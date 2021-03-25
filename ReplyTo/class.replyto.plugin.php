@@ -9,7 +9,6 @@ class ReplyToPlugin extends Gdn_Plugin {
 
     const QUERY_PARAMETER_VIEW='view';
     const VIEW_FLAT = 'flat';
-    const VIEW_TREE = 'tree';
     const VIEW_THREADED = 'threaded';
 
     private $replyToModel;
@@ -83,12 +82,11 @@ class ReplyToPlugin extends Gdn_Plugin {
         }
 
         $discussionUrl = discussionUrl($discussion, '', '/');
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
+        $viewMode = self::getViewMode();
 
         echo '<div class="ReplyViewOptions"><span class="MLabel">View:&nbsp</span>';
-        echo anchor('Flat', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_FLAT, $viewMode == self::VIEW_FLAT?'Active':'').'&nbsp;&nbsp;|&nbsp;&nbsp;';
         echo anchor('Threaded', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_THREADED, $viewMode == self::VIEW_THREADED?'Active':'').'&nbsp;&nbsp;|&nbsp;&nbsp;';
-        echo anchor('Tree', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_TREE, $viewMode == self::VIEW_TREE?'Active':'');
+        echo anchor('Flat', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_FLAT, $viewMode == self::VIEW_FLAT?'Active':'');
         echo '</div>';
     }
 
@@ -98,9 +96,9 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @param $sender
      */
     public function commentModel_afterConstruct_handler(&$sender) {
-        self::log('commentModel_afterConstruct_handler', ['path'=> Gdn::request()->pathAndQuery()]);
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
-        if($viewMode == self::VIEW_TREE || $viewMode == self::VIEW_THREADED) {
+        $viewMode = self::getViewMode();
+
+        if($viewMode == self::VIEW_THREADED) {
             $sender->orderBy(array('TreeLeft asc', 'DateInserted asc'));
         }
     }
@@ -138,10 +136,8 @@ class ReplyToPlugin extends Gdn_Plugin {
         if (!Gdn::session()->isValid()) {
             return;
         }
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW);
-        if(!$viewMode) {
-            return;
-        }
+        $viewMode = self::getViewMode();
+        //  $offsetProvided = $args['OffsetProvided'];
         $discussion = $args['Discussion'];
         $offset = & $args['Offset'];
         $limit = & $args['Limit'];
@@ -152,7 +148,6 @@ class ReplyToPlugin extends Gdn_Plugin {
         }
 
         if($viewMode === self::VIEW_FLAT) {
-            $offset = 0;
             $enableAutoOffset = false;
         } else {
             // Show all comment on one offset for Tree/Threaded View
@@ -176,7 +171,7 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
 
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
+        $viewMode = self::getViewMode();
         if($viewMode == self::VIEW_FLAT) {
             return;
         }
@@ -221,7 +216,7 @@ class ReplyToPlugin extends Gdn_Plugin {
             'Class' => 'ReplyComment'
         ];
 
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
+        $viewMode = self::getViewMode();
         foreach ($options as $key => $value) {
             $currentUrl =  $options[$key]['Url'];
             if (strpos($currentUrl, '?') !== false ) {
@@ -242,20 +237,30 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_beforeCommentDisplay_handler($sender, $args) {
-        ReplyToPlugin::log('base_beforeCommentDisplay_handler', []);
-
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
-        if($viewMode == self::VIEW_FLAT) {
-           return;
-        }
         if($sender->deliveryType() != DELIVERY_TYPE_ALL) {
-            ReplyToPlugin::log('base_beforeCommentDisplay_handler', ['']);
-            $this->buildCommentReplyToCssClasses($sender);
+            if(isset($_SERVER['HTTP_REFERER'])) {
+                $previous = $_SERVER['HTTP_REFERER'];
+                $query = parse_url($previous, PHP_URL_QUERY);
+                parse_str($query, $params);
+                $viewMode = $params['view'];
+                if(!$viewMode) {
+                    $viewMode = self::isPagingUrl($previous) ? self::VIEW_FLAT : self::VIEW_THREADED;
+                }
+
+                if($viewMode == self::VIEW_THREADED) {
+                    $this->buildCommentReplyToCssClasses($sender);
+                }
+            }
+        } else {
+            $viewMode = self::getViewMode();
+            if($viewMode == self::VIEW_THREADED) {
+                $this->buildCommentReplyToCssClasses($sender);
+            }
         }
         $comment = &$args['Comment'];
         $cssClass = &$args['CssClass'];
-        $displayBody = &$args['DisplayBody'];
-        $displayBody = $viewMode == self::VIEW_FLAT || $viewMode == self::VIEW_THREADED;
+        // $displayBody = &$args['DisplayBody'];
+        // $displayBody = $viewMode == self::VIEW_FLAT || $viewMode == self::VIEW_THREADED;
         $cssClass .= (!empty($comment->ReplyToClass)? ' ' . $comment->ReplyToClass : '');
     }
 
@@ -328,6 +333,19 @@ class ReplyToPlugin extends Gdn_Plugin {
             // Set the class of the comment according to depth.
             $Comment->ReplyToClass = $this->replyToModel->depthClasses($depth);
         }
+    }
+
+    private static function isPagingUrl($url) {
+        return preg_match('/\/p\d+$/', $url);
+    }
+
+    private static function getViewMode(){
+        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW);
+        if(!$viewMode) {
+            $viewMode = self::isPagingUrl(Gdn::request()->path())? self::VIEW_FLAT: self::VIEW_THREADED;
+        }
+
+        return $viewMode;
     }
 
     public static function log($message, $data) {
