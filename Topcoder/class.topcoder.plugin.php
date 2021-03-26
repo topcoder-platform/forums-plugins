@@ -852,16 +852,25 @@ class TopcoderPlugin extends Gdn_Plugin {
                     $groupID = $category->GroupID;
                 }
             }
-        } else if($args['Controller'] instanceof  Groupcontroller) {
+        } else if($args['Controller'] instanceof  GroupController) {
             if (array_key_exists('groupid', $methodArgs)) {
                 $groupID = (int) $methodArgs['groupid'];
             }
+        } else if($args['Controller'] instanceof  PostController) {
+             if (array_key_exists('commentid', $methodArgs)) {
+                $commentID = $methodArgs['commentid'];
+                $commentModel = new CommentModel();
+                $comment = $commentModel->getID($commentID);
+                $discussionModel = new DiscussionModel();
+                $discussion = $discussionModel->getID($comment->DiscussionID);
+                if($discussion->CategoryID){
+                    $categoryModel = new CategoryModel();
+                    $category = $categoryModel->getID($discussion->CategoryID);
+                    $groupID = $category->GroupID;
+                }
+            }
         }
-        //} else if($args instanceof CategoriesController) {
-            //TODO
-        //} else if ( $args instanceof CategoryController) {
-            //TODO
-        //}
+
         if($groupID && $groupID > 0) {
             $groupModel = new GroupModel();
             $group = $groupModel->getByGroupID($groupID);
