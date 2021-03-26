@@ -2020,7 +2020,7 @@ if (!function_exists('userPhoto')) {
 
         $userLink = userUrl($fullUser);
         $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
-        if($topcoderProfile !== null) {
+        if($topcoderProfile) {
             $attributes['target'] = '_blank';
             $userLink = TopcoderPlugin::getTopcoderProfileUrl($name);
             $topcoderPhotoUrl = val('PhotoUrl', $topcoderProfile);
@@ -2029,12 +2029,14 @@ if (!function_exists('userPhoto')) {
             }
         }
 
+        $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
         $href = (val('NoLink', $options)) ? '' : ' href="'.url($userLink).'"';
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['Title'] =& $title;
         Gdn::controller()->EventArguments['Attributes'] =& $attributes;
+        Gdn::controller()->EventArguments['IsTopcoderAdmin'] =$isTopcoderAdmin;
         Gdn::controller()->fireEvent('UserPhoto');
 
         return '<a title="'.$title.'"'.$href.attribute($attributes).'>'
