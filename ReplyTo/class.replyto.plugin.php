@@ -192,22 +192,20 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
         $discussion = $sender->data('Discussion');
-        $isClosed = ((int)$discussion->Closed) == 1;
-        if ($isClosed) {
-            return;
-        }
 
         //Check permission
-        if (isset($discussion->PermissionCategoryID)) {
-            $CategoryID = val('PermissionCategoryID', $discussion);
-        } else {
-            $CategoryID = $discussion->CategoryID;
-        }
+        $CategoryID = val('PermissionCategoryID', $discussion)? val('PermissionCategoryID', $discussion):val('CategoryID', $discussion);
+        $userCanClose = CategoryModel::checkPermission($CategoryID, 'Vanilla.Discussions.Close');
+        $userCanComment = CategoryModel::checkPermission($CategoryID, 'Vanilla.Comments.Add');
 
-        // Can the user comment on this category, and is the discussion open for comments?
-        if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
+        $canAddComment = ($discussion->Closed == '1' && $userCanClose) || ($discussion->Closed == '0' && $userCanComment);
+        if (!$canAddComment) {
             return;
         }
+        // Can the user comment on this category, and is the discussion open for comments?
+       // if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
+       //     return;
+       // }
 
         $options = &$args['CommentOptions'];
         $comment = $args['Comment'];
@@ -244,26 +242,21 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
 
-        $isClosed = ((int)$discussion->Closed) == 1;
-        if ($isClosed) {
-            return;
-        }
-
         if (!Gdn::session()->UserID) {
             return;
         }
 
         //Check permission
-        if (isset($discussion->PermissionCategoryID)) {
-            $CategoryID = val('PermissionCategoryID', $discussion);
-        } else {
-            $CategoryID = $discussion->CategoryID;
-        }
+        $CategoryID = val('PermissionCategoryID', $discussion)? val('PermissionCategoryID', $discussion):val('CategoryID', $discussion);
+        $userCanClose = CategoryModel::checkPermission($CategoryID, 'Vanilla.Discussions.Close');
+        $userCanComment = CategoryModel::checkPermission($CategoryID, 'Vanilla.Comments.Add');
 
-        // Can the user comment on this category, and is the discussion open for comments?
-        if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
+        // See  the 'writeCommentForm' method vanilla/applications/vanilla/views/discussion/helper_functions.php
+        $canAddComment = ($discussion->Closed == '1' && $userCanClose) || ($discussion->Closed == '0' && $userCanComment);
+        if (!$canAddComment) {
             return;
         }
+
         // DropdownModule options
         $options = & $args['DiscussionOptions'];
         $options->addLink('Reply', url("/", true), 'reply', 'ReplyComment');
