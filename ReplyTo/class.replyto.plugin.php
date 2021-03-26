@@ -91,39 +91,6 @@ class ReplyToPlugin extends Gdn_Plugin {
         echo '</span>';
     }
 
-    public function base_inlineCommentOptionsRight_handler($sender, $args) {
-        ReplyToPlugin::log('base_inlineCommentOptionsRight_handler', []);
-
-        if (!Gdn::Session()->isValid()) {
-            return;
-        }
-
-        $discussion = $sender->data('Discussion');
-        $isClosed = ((int)$discussion->Closed) == 1;
-        if ($isClosed) {
-            return;
-        }
-
-        //Check permission
-        $CategoryID = val('PermissionCategoryID', $discussion) ? val('PermissionCategoryID', $discussion) : val('CategoryID', $discussion);
-
-        // Can the user comment on this category, and is the discussion open for comments?
-        if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
-            return;
-        }
-
-        $viewMode = self::getViewMode();
-        $comment = &$args['Comment'];
-        $items = & $args['Items'];
-        $commentID = val('CommentID', $comment);
-        if(empty($items)) {
-            $items = [];
-        }
-        array_push( $items, anchor(
-                t('Reply'),
-                url("/?ParentCommentID=".$commentID."&view=".$viewMode, false), 'ReplyComment'));
-    }
-
     /**
      * Set the tree order of all comments in the model as soon as it is instantiated.
      * It is not clear if there are other plugins that may also wish to change the ordering.
@@ -242,9 +209,8 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
 
-        /*
         $options = &$args['CommentOptions'];
-        $comment = &$args['Comment'];
+        $comment = $args['Comment'];
         $options['ReplyToComment'] = [
             'Label' => t('Reply'),
             'Url' => '/?ParentCommentID='.$comment->CommentID,
@@ -264,7 +230,43 @@ class ReplyToPlugin extends Gdn_Plugin {
                 $options[$key]['Url'] = $currentUrl.'?view='.$viewMode;
             }
         }
-        */
+    }
+
+    /**
+     * Add 'Reply' option to discussion.
+     *
+     * @param Gdn_Controller $sender
+     * @param array $args
+     */
+    public function base_inlineDiscussionOptions_handler($sender, $args) {
+        $discussion = $args['Discussion'];
+        if (!$discussion) {
+            return;
+        }
+
+        $isClosed = ((int)$discussion->Closed) == 1;
+        if ($isClosed) {
+            return;
+        }
+
+        if (!Gdn::session()->UserID) {
+            return;
+        }
+
+        //Check permission
+        if (isset($discussion->PermissionCategoryID)) {
+            $CategoryID = val('PermissionCategoryID', $discussion);
+        } else {
+            $CategoryID = $discussion->CategoryID;
+        }
+
+        // Can the user comment on this category, and is the discussion open for comments?
+        if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
+            return;
+        }
+        // DropdownModule options
+        $options = & $args['DiscussionOptions'];
+        $options->addLink('Reply', url("/", true), 'reply', 'ReplyComment');
     }
 
     /**
