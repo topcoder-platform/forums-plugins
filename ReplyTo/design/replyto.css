@@ -1,5 +1,6 @@
 
 .ReplyViewOptions {
+    font-family: roboto, Segoe UI, Helvetica Neue, Helvetica, Raleway, Arial, sans-serif;
     display: inline-block;
     line-height: 1.5;
 }
@@ -8,8 +9,7 @@
 }
 
 .MessageList .ItemDiscussion .Item-Body .Controls a.ReplyViewOptionLink.Active, .ReplyViewOptions .ReplyViewOptionLink.Active {
-    color: #696969;
-    font-weight: 800;
+    color: #555555;
 }
 /* 
    Indent comments according to their depth. 
