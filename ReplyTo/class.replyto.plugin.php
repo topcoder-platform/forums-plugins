@@ -67,6 +67,16 @@ class ReplyToPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Add View Mode before rendering comments
+     * @param $sender
+     * @param $args
+     */
+    public function base_beforeCommentsRender_handler($sender, $args) {
+        $viewMode = self::getViewMode();
+        $sender->setData('ViewMode', $viewMode);
+    }
+
+    /**
      * Render View options for a discussion
      * @param $sender
      * @param $args
@@ -264,11 +274,13 @@ class ReplyToPlugin extends Gdn_Plugin {
 
     /**
      * Insert the indentation classes into the comment.
+     * All rendering options should be set before displaying comments
      * @param $sender
      * @param $args
      */
     public function base_beforeCommentDisplay_handler($sender, $args) {
         if($sender->deliveryType() != DELIVERY_TYPE_ALL) {
+            // Ajax request to post new comments or update comments
             if(isset($_SERVER['HTTP_REFERER'])) {
                 $previous = $_SERVER['HTTP_REFERER'];
                 $query = parse_url($previous, PHP_URL_QUERY);
@@ -277,7 +289,7 @@ class ReplyToPlugin extends Gdn_Plugin {
                 if(!$viewMode) {
                     $viewMode = self::isPagingUrl($previous) ? self::VIEW_FLAT : self::VIEW_THREADED;
                 }
-
+                $sender->setData('ViewMode', $viewMode);
                 if($viewMode == self::VIEW_THREADED) {
                     $this->buildCommentReplyToCssClasses($sender);
                 }
