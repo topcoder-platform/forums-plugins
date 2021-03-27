@@ -827,6 +827,12 @@ class TopcoderPlugin extends Gdn_Plugin {
         <?php
     }
 
+    /**
+     * Load resource roles and challenge roles by challengeID from Topcoder services
+     * and set data to sender.
+     * @param $sender
+     * @param $args
+     */
     function gdn_dispatcher_beforeControllerMethod_handler($sender, $args){
         if(!c('Garden.Installed')){
             return;
@@ -857,7 +863,16 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $groupID = (int) $methodArgs['groupid'];
             }
         } else if($args['Controller'] instanceof  PostController) {
-             if (array_key_exists('commentid', $methodArgs)) {
+            if (array_key_exists('discussionid', $methodArgs)) {
+                $discussionID = $methodArgs['discussionid'];
+                $discussionModel = new DiscussionModel();
+                $discussion = $discussionModel->getID($discussionID);
+                if($discussion->CategoryID){
+                    $categoryModel = new CategoryModel();
+                    $category = $categoryModel->getID($discussion->CategoryID);
+                    $groupID = $category->GroupID;
+                }
+            } else if (array_key_exists('commentid', $methodArgs)) {
                 $commentID = $methodArgs['commentid'];
                 $commentModel = new CommentModel();
                 $comment = $commentModel->getID($commentID);
