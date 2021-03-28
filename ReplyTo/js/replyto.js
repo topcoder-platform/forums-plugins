@@ -7,7 +7,7 @@ jQuery(document).ready(function($) {
    //If view is not flat, reload a page to rebuild a tree
    function reloadPage() {
       var currentView = param(window.location.href, 'view');
-      return  (currentView == 'tree' || currentView == 'threaded');
+      return  currentView == 'threaded';
    }
 
    $(document).on('click','a.ReplyComment', function(ev) {
@@ -48,7 +48,9 @@ jQuery(document).ready(function($) {
       } else {
          $(cancelReplyButton).show();
       }
-      $(form)[0].scrollIntoView();
+
+      var ScrollY = $(form).offset().top - 100;
+      $('html,body').animate({scrollTop: ScrollY}, 800);
       return false;
    });
 
