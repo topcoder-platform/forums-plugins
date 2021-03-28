@@ -293,7 +293,7 @@ class ReplyToModel extends Gdn_Model {
 
         // Add some further classes for blocks of each 5 depth levels, so limits can
         // be set on the way depth is formatted.
-        for ($i = 1; $i <= 100; $i += 5) {
+        for ($i = 1; $i <= 20; $i += 5) {
             if ($depth >= $i) {
                 $Class .= ' ' . $Prefix . '-' . $i . 'plus';
             } else {
