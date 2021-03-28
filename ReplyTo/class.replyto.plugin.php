@@ -144,9 +144,6 @@ class ReplyToPlugin extends Gdn_Plugin {
      }
 
     public function discussionController_BeforeCalculatingOffsetLimit_handler($sender, $args) {
-        if (!Gdn::session()->isValid()) {
-            return;
-        }
         $viewMode = self::getViewMode();
         //  $offsetProvided = $args['OffsetProvided'];
         $discussion = $args['Discussion'];
