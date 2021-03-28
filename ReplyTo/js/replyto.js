@@ -15,12 +15,22 @@ jQuery(document).ready(function($) {
       var parent = $(btn).parents('.MainContent');
       var commentContainer = $(parent).find('div.CommentForm');
       var header = $(commentContainer).find('h2.H');
-      $(header).text('Reply to a comment');
       // Form
       var form = $(commentContainer).find('form#Form_Comment');
       var href = $(btn).attr('href');
       var commentID = param(href,'ParentCommentID');
       var hiddenField = $(form).find(':input[type="hidden"]#Form_ParentCommentID')
+
+      var author = '';
+      if(commentID == '') { // No Parent Comment, Reply to Discussion
+         commentID = 0;
+         author = $(btn).parents('.Discussion').find('.Item-Header.DiscussionHeader .Author .topcoderHandle').text();
+      } else {
+         author = $(btn).parents('.Comment').find('.Item-Header.CommentHeader .Author .topcoderHandle').text();
+      }
+
+      $(header).text('Replying to '+ author);
+
       if($(hiddenField).length == 0) {
          var el = '<input type="hidden" name="ParentCommentID" id="Form_ParentCommentID" value="' + commentID + '"></input>';
          $(form).append(el);
@@ -30,11 +40,11 @@ jQuery(document).ready(function($) {
       var formButtons = $(form).find('.Buttons');
       var postCommentButton = $(form).find('.CommentButton');
       postCommentButton.val('Post Reply');
-      var backButton = $(formButtons).find('span.Back');
+      var backButton = $(formButtons).find('.Button.PreviewButton');
       var cancelReplyButton = $(formButtons).find('span.Reply');
       if($(cancelReplyButton).length == 0) {
          var cancelReplyButton = '<span class="Reply"><a href="/" class="Button CancelReplyComment">Cancel Reply</a></span>';
-         $(cancelReplyButton).insertAfter(backButton);
+         $(cancelReplyButton).insertBefore(backButton);
       } else {
          $(cancelReplyButton).show();
       }
