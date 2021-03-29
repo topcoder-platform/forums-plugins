@@ -108,7 +108,8 @@ if ($Session->isValid()):
     //  $dropdown->addLinkIf(hasViewProfile(Gdn::session()->UserID), t('View Profile'), '/profile', 'profile.view', '', [], $editModifiers);
 
     $preferencesModifiers['listItemCssClasses'] = ['MeButtonMenuItem', 'MeButtonSettingsItem'];
-    $dropdown->addLinkIf(hasEditProfile(Gdn::session()->UserID), 'Settings', '/profile/preferences', 'profile.preferences', '', [], $preferencesModifiers);
+    // $dropdown->addLinkIf(hasEditProfile(Gdn::session()->UserID), 'Settings', '/profile/preferences', 'profile.preferences', '', [], $preferencesModifiers);
+    $dropdown->addLink('Settings', 'https://www.topcoder.com/settings/profile', 'profile.preferences', '', [], $preferencesModifiers);
 
     // $applicantModifiers = $ApplicantCount > 0 ? ['badge' => $ApplicantCount] : [];
     // $applicantModifiers['listItemCssClasses'] = ['link-applicants'];
