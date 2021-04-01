@@ -827,6 +827,12 @@ class TopcoderPlugin extends Gdn_Plugin {
         <?php
     }
 
+    /**
+     * Load resource roles and challenge roles by challengeID from Topcoder services
+     * and set data to sender.
+     * @param $sender
+     * @param $args
+     */
     function gdn_dispatcher_beforeControllerMethod_handler($sender, $args){
         if(!c('Garden.Installed')){
             return;
@@ -852,16 +858,34 @@ class TopcoderPlugin extends Gdn_Plugin {
                     $groupID = $category->GroupID;
                 }
             }
-        } else if($args['Controller'] instanceof  Groupcontroller) {
+        } else if($args['Controller'] instanceof  GroupController) {
             if (array_key_exists('groupid', $methodArgs)) {
                 $groupID = (int) $methodArgs['groupid'];
             }
+        } else if($args['Controller'] instanceof  PostController) {
+            if (array_key_exists('discussionid', $methodArgs)) {
+                $discussionID = $methodArgs['discussionid'];
+                $discussionModel = new DiscussionModel();
+                $discussion = $discussionModel->getID($discussionID);
+                if($discussion->CategoryID){
+                    $categoryModel = new CategoryModel();
+                    $category = $categoryModel->getID($discussion->CategoryID);
+                    $groupID = $category->GroupID;
+                }
+            } else if (array_key_exists('commentid', $methodArgs)) {
+                $commentID = $methodArgs['commentid'];
+                $commentModel = new CommentModel();
+                $comment = $commentModel->getID($commentID);
+                $discussionModel = new DiscussionModel();
+                $discussion = $discussionModel->getID($comment->DiscussionID);
+                if($discussion->CategoryID){
+                    $categoryModel = new CategoryModel();
+                    $category = $categoryModel->getID($discussion->CategoryID);
+                    $groupID = $category->GroupID;
+                }
+            }
         }
-        //} else if($args instanceof CategoriesController) {
-            //TODO
-        //} else if ( $args instanceof CategoryController) {
-            //TODO
-        //}
+
         if($groupID && $groupID > 0) {
             $groupModel = new GroupModel();
             $group = $groupModel->getByGroupID($groupID);
@@ -2011,7 +2035,7 @@ if (!function_exists('userPhoto')) {
 
         $userLink = userUrl($fullUser);
         $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
-        if($topcoderProfile !== null) {
+        if($topcoderProfile) {
             $attributes['target'] = '_blank';
             $userLink = TopcoderPlugin::getTopcoderProfileUrl($name);
             $topcoderPhotoUrl = val('PhotoUrl', $topcoderProfile);
@@ -2020,12 +2044,14 @@ if (!function_exists('userPhoto')) {
             }
         }
 
+        $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
         $href = (val('NoLink', $options)) ? '' : ' href="'.url($userLink).'"';
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['Title'] =& $title;
         Gdn::controller()->EventArguments['Attributes'] =& $attributes;
+        Gdn::controller()->EventArguments['IsTopcoderAdmin'] =$isTopcoderAdmin;
         Gdn::controller()->fireEvent('UserPhoto');
 
         return '<a title="'.$title.'"'.$href.attribute($attributes).'>'
@@ -2125,6 +2151,7 @@ if (!function_exists('userAnchor')) {
         }
 
         Gdn::controller()->EventArguments['User'] = $user;
+        Gdn::controller()->EventArguments['IsTopcoderAdmin'] =$isTopcoderAdmin;
         Gdn::controller()->EventArguments['Text'] =& $text;
         Gdn::controller()->EventArguments['Attributes'] =& $attributes;
         Gdn::controller()->fireEvent('UserAnchor');

@@ -1,12 +1,15 @@
 
 .ReplyViewOptions {
+    font-family: roboto, Segoe UI, Helvetica Neue, Helvetica, Raleway, Arial, sans-serif;
     display: inline-block;
     line-height: 1.5;
 }
+.MessageList .ItemDiscussion .Item-Body .Controls a.ReplyViewOptionLink, .ReplyViewOptions .ReplyViewOptionLink {
+    color: #137d60;
+}
 
-.ReplyViewOptions a.Active {
-    color: #696969;
-    font-weight: 800;
+.MessageList .ItemDiscussion .Item-Body .Controls a.ReplyViewOptionLink.Active, .ReplyViewOptions .ReplyViewOptionLink.Active {
+    color: #555555;
 }
 /* 
    Indent comments according to their depth. 
@@ -53,8 +56,103 @@ li.Item.ReplyToDepth-9  {
     margin-left: 14em;
 }
 
-/* Stop indenting any further after 10 levels */
-li.Item.ReplyToDepth-10plus  {
+li.Item.ReplyToDepth-10  {
     margin-left: 15em;
 }
 
+li.Item.ReplyToDepth-11  {
+    margin-left: 16em;
+}
+
+li.Item.ReplyToDepth-12  {
+    margin-left: 17em;
+}
+
+li.Item.ReplyToDepth-13  {
+    margin-left: 18em;
+}
+
+li.Item.ReplyToDepth-14  {
+    margin-left: 19em;
+}
+
+li.Item.ReplyToDepth-15  {
+    margin-left: 20em;
+}
+
+
+/* Stop indenting any further after 15 levels */
+li.Item.ReplyToDepth-16plus {
+    margin-left: 20em;
+}
+
+@media screen and (max-width: 960px) {
+    li.Item.ReplyToDepth-1  {
+        margin-left: 1em;
+    }
+
+    li.Item.ReplyToDepth-2  {
+        margin-left: 1.25em;
+    }
+
+    li.Item.ReplyToDepth-3  {
+        margin-left: 1.5em;
+    }
+
+    li.Item.ReplyToDepth-4  {
+        margin-left: 1.75em;
+    }
+
+    li.Item.ReplyToDepth-5  {
+        margin-left: 2em;
+    }
+
+    /* Reduce the indenting to single ems after 5 levels */
+
+    li.Item.ReplyToDepth-6  {
+        margin-left: 2.25em;
+    }
+
+    li.Item.ReplyToDepth-7  {
+        margin-left: 2.5em;
+    }
+
+    li.Item.ReplyToDepth-8  {
+        margin-left: 2.75em;
+    }
+
+    li.Item.ReplyToDepth-9  {
+        margin-left: 3em;
+    }
+
+    li.Item.ReplyToDepth-10  {
+        margin-left: 3.25em;
+    }
+
+    li.Item.ReplyToDepth-11  {
+        margin-left: 3.5em;
+    }
+
+    li.Item.ReplyToDepth-12  {
+        margin-left: 3.75em;
+    }
+
+    li.Item.ReplyToDepth-13  {
+        margin-left: 4em;
+    }
+
+    li.Item.ReplyToDepth-14  {
+        margin-left: 4.25em;
+    }
+
+    li.Item.ReplyToDepth-15  {
+        margin-left: 4.5em;
+    }
+
+
+    /* Stop indenting any further after 15 levels */
+    li.Item.ReplyToDepth-16plus {
+        margin-left: 5em;
+    }
+
+}

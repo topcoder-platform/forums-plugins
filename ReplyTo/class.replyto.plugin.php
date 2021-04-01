@@ -9,7 +9,6 @@ class ReplyToPlugin extends Gdn_Plugin {
 
     const QUERY_PARAMETER_VIEW='view';
     const VIEW_FLAT = 'flat';
-    const VIEW_TREE = 'tree';
     const VIEW_THREADED = 'threaded';
 
     private $replyToModel;
@@ -68,11 +67,21 @@ class ReplyToPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Add View Mode before rendering comments
+     * @param $sender
+     * @param $args
+     */
+    public function base_beforeCommentsRender_handler($sender, $args) {
+        $viewMode = self::getViewMode();
+        $sender->setData('ViewMode', $viewMode);
+    }
+
+    /**
      * Render View options for a discussion
      * @param $sender
      * @param $args
      */
-    public function base_Replies_handler($sender, $args){
+    public function base_InlineDiscussionOptionsLeft_handler($sender, $args){
         $discussion = $sender->data('Discussion');
         if (!$discussion) {
             return;
@@ -83,13 +92,13 @@ class ReplyToPlugin extends Gdn_Plugin {
         }
 
         $discussionUrl = discussionUrl($discussion, '', '/');
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
+        $viewMode = self::getViewMode();
 
-        echo '<div class="ReplyViewOptions"><span class="MLabel">View:&nbsp</span>';
-        echo anchor('Flat', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_FLAT, $viewMode == self::VIEW_FLAT?'Active':'').'&nbsp;&nbsp;|&nbsp;&nbsp;';
-        echo anchor('Threaded', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_THREADED, $viewMode == self::VIEW_THREADED?'Active':'').'&nbsp;&nbsp;|&nbsp;&nbsp;';
-        echo anchor('Tree', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_TREE, $viewMode == self::VIEW_TREE?'Active':'');
-        echo '</div>';
+        echo '<span class="ReplyViewOptions">';
+        echo '<span class="MLabel">View:&nbsp</span>';
+        echo anchor('Threaded', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_THREADED, $viewMode == self::VIEW_THREADED?'ReplyViewOptionLink Active':'ReplyViewOptionLink').'&nbsp;&nbsp;|&nbsp;&nbsp;';
+        echo anchor('Flat', $discussionUrl.'?'.self::QUERY_PARAMETER_VIEW.'='.self::VIEW_FLAT, $viewMode == self::VIEW_FLAT?'ReplyViewOptionLink Active':'ReplyViewOptionLink');
+        echo '</span>';
     }
 
     /**
@@ -98,9 +107,9 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @param $sender
      */
     public function commentModel_afterConstruct_handler(&$sender) {
-        self::log('commentModel_afterConstruct_handler', ['path'=> Gdn::request()->pathAndQuery()]);
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
-        if($viewMode == self::VIEW_TREE || $viewMode == self::VIEW_THREADED) {
+        $viewMode = self::getViewMode();
+
+        if($viewMode == self::VIEW_THREADED) {
             $sender->orderBy(array('TreeLeft asc', 'DateInserted asc'));
         }
     }
@@ -135,13 +144,8 @@ class ReplyToPlugin extends Gdn_Plugin {
      }
 
     public function discussionController_BeforeCalculatingOffsetLimit_handler($sender, $args) {
-        if (!Gdn::session()->isValid()) {
-            return;
-        }
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW);
-        if(!$viewMode) {
-            return;
-        }
+        $viewMode = self::getViewMode();
+        //  $offsetProvided = $args['OffsetProvided'];
         $discussion = $args['Discussion'];
         $offset = & $args['Offset'];
         $limit = & $args['Limit'];
@@ -152,7 +156,6 @@ class ReplyToPlugin extends Gdn_Plugin {
         }
 
         if($viewMode === self::VIEW_FLAT) {
-            $offset = 0;
             $enableAutoOffset = false;
         } else {
             // Show all comment on one offset for Tree/Threaded View
@@ -176,7 +179,7 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
 
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
+        $viewMode = self::getViewMode();
         if($viewMode == self::VIEW_FLAT) {
             return;
         }
@@ -196,32 +199,30 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
         $discussion = $sender->data('Discussion');
-        $isClosed = ((int)$discussion->Closed) == 1;
-        if ($isClosed) {
-            return;
-        }
 
         //Check permission
-        if (isset($discussion->PermissionCategoryID)) {
-            $CategoryID = val('PermissionCategoryID', $discussion);
-        } else {
-            $CategoryID = $discussion->CategoryID;
-        }
+        $CategoryID = val('PermissionCategoryID', $discussion)? val('PermissionCategoryID', $discussion):val('CategoryID', $discussion);
+        $userCanClose = CategoryModel::checkPermission($CategoryID, 'Vanilla.Discussions.Close');
+        $userCanComment = CategoryModel::checkPermission($CategoryID, 'Vanilla.Comments.Add');
 
-        // Can the user comment on this category, and is the discussion open for comments?
-        if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
+        $canAddComment = ($discussion->Closed == '1' && $userCanClose) || ($discussion->Closed == '0' && $userCanComment);
+        if (!$canAddComment) {
             return;
         }
+        // Can the user comment on this category, and is the discussion open for comments?
+       // if (!Gdn::Session()->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $CategoryID)) {
+       //     return;
+       // }
 
         $options = &$args['CommentOptions'];
-        $comment = &$args['Comment'];
+        $comment = $args['Comment'];
         $options['ReplyToComment'] = [
             'Label' => t('Reply'),
             'Url' => '/?ParentCommentID='.$comment->CommentID,
             'Class' => 'ReplyComment'
         ];
 
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
+        $viewMode = self::getViewMode();
         foreach ($options as $key => $value) {
             $currentUrl =  $options[$key]['Url'];
             if (strpos($currentUrl, '?') !== false ) {
@@ -237,25 +238,69 @@ class ReplyToPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Add 'Reply' option to discussion.
+     *
+     * @param Gdn_Controller $sender
+     * @param array $args
+     */
+    public function base_inlineDiscussionOptions_handler($sender, $args) {
+        $discussion = $args['Discussion'];
+        if (!$discussion) {
+            return;
+        }
+
+        if (!Gdn::session()->UserID) {
+            return;
+        }
+
+        //Check permission
+        $CategoryID = val('PermissionCategoryID', $discussion)? val('PermissionCategoryID', $discussion):val('CategoryID', $discussion);
+        $userCanClose = CategoryModel::checkPermission($CategoryID, 'Vanilla.Discussions.Close');
+        $userCanComment = CategoryModel::checkPermission($CategoryID, 'Vanilla.Comments.Add');
+
+        // See  the 'writeCommentForm' method vanilla/applications/vanilla/views/discussion/helper_functions.php
+        $canAddComment = ($discussion->Closed == '1' && $userCanClose) || ($discussion->Closed == '0' && $userCanComment);
+        if (!$canAddComment) {
+            return;
+        }
+
+        // DropdownModule options
+        $options = & $args['DiscussionOptions'];
+        $options->addLink('Reply', url("/", true), 'reply', 'ReplyComment');
+    }
+
+    /**
      * Insert the indentation classes into the comment.
+     * All rendering options should be set before displaying comments
      * @param $sender
      * @param $args
      */
     public function base_beforeCommentDisplay_handler($sender, $args) {
-        ReplyToPlugin::log('base_beforeCommentDisplay_handler', []);
-
-        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW, self::VIEW_FLAT);
-        if($viewMode == self::VIEW_FLAT) {
-           return;
-        }
         if($sender->deliveryType() != DELIVERY_TYPE_ALL) {
-            ReplyToPlugin::log('base_beforeCommentDisplay_handler', ['']);
-            $this->buildCommentReplyToCssClasses($sender);
+            // Ajax request to post new comments or update comments
+            if(isset($_SERVER['HTTP_REFERER'])) {
+                $previous = $_SERVER['HTTP_REFERER'];
+                $query = parse_url($previous, PHP_URL_QUERY);
+                parse_str($query, $params);
+                $viewMode = $params['view'];
+                if(!$viewMode) {
+                    $viewMode = self::isPagingUrl($previous) ? self::VIEW_FLAT : self::VIEW_THREADED;
+                }
+                $sender->setData('ViewMode', $viewMode);
+                if($viewMode == self::VIEW_THREADED) {
+                    $this->buildCommentReplyToCssClasses($sender);
+                }
+            }
+        } else {
+            $viewMode = self::getViewMode();
+            if($viewMode == self::VIEW_THREADED) {
+                $this->buildCommentReplyToCssClasses($sender);
+            }
         }
         $comment = &$args['Comment'];
         $cssClass = &$args['CssClass'];
-        $displayBody = &$args['DisplayBody'];
-        $displayBody = $viewMode == self::VIEW_FLAT || $viewMode == self::VIEW_THREADED;
+        // $displayBody = &$args['DisplayBody'];
+        // $displayBody = $viewMode == self::VIEW_FLAT || $viewMode == self::VIEW_THREADED;
         $cssClass .= (!empty($comment->ReplyToClass)? ' ' . $comment->ReplyToClass : '');
     }
 
@@ -328,6 +373,19 @@ class ReplyToPlugin extends Gdn_Plugin {
             // Set the class of the comment according to depth.
             $Comment->ReplyToClass = $this->replyToModel->depthClasses($depth);
         }
+    }
+
+    private static function isPagingUrl($url) {
+        return preg_match('/\/p\d+$/', $url);
+    }
+
+    private static function getViewMode(){
+        $viewMode = getIncomingValue(self::QUERY_PARAMETER_VIEW);
+        if(!$viewMode) {
+            $viewMode = self::isPagingUrl(Gdn::request()->path())? self::VIEW_FLAT: self::VIEW_THREADED;
+        }
+
+        return $viewMode;
     }
 
     public static function log($message, $data) {

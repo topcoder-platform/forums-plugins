@@ -42,10 +42,10 @@ a.coderRatingRed:hover, a.coderRatingYellow:hover, a.coderRatingBlue:hover, a.co
     text-decoration: none !important;
 }
 .coderRatingRed:hover, .coderRatingYellow:hover, .coderRatingBlue:hover, .coderRatingGreen:hover, .coderRatingGrey:hover, .coderRatingNone:hover, .topcoderAdmin:hover {
-    text-decoration: underline !important;
+    text-decoration: none !important;
 }
 .coderRatingRed:active, .coderRatingYellow:active, .coderRatingBlue:active, .coderRatingGreen:active, .coderRatingGrey:active, .coderRatingNone:active, .topcoderAdmin:active {
-    text-decoration: underline !important;
+    text-decoration: none !important;
 }
 
 /* Red */
@@ -107,6 +107,18 @@ a.coderRatingRed:hover, a.coderRatingYellow:hover, a.coderRatingBlue:hover, a.co
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.topcoderAdmin,
 .Flyout.Flyout a.topcoderAdmin, .Flyout.Flyout a.topcoderAdmin:link,.Flyout.Flyout a.topcoderAdmin:visited, .Flyout.Flyout a.topcoderAdmin:hover, .Flyout.Flyout a.topcoderAdmin:active,
 .userContent p a.topcoderAdmin, .userContent p a.topcoderAdmin:link, .userContent p a.topcoderAdmin:visited, .userContent p a.topcoderAdmin:hover, .userContent p a.topcoderAdmin:active { color: #ff9900 !important;  }
+
+a:hover span.topcoderHandle{
+    text-decoration: underline;
+}
+
+a span.challengeRoles {
+    color: black;
+}
+
+a:hover span.challengeRoles {
+    text-decoration: underline;
+}
 
 
 /* Search breadcrumbs css style */
