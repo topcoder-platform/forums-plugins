@@ -4,12 +4,6 @@ jQuery(document).ready(function($) {
       return (href.split(name + '=')[1] || '').split('&')[0];
    }
 
-   //If view is not flat, reload a page to rebuild a tree
-   function reloadPage() {
-      var currentView = param(window.location.href, 'view');
-      return  currentView == 'threaded';
-   }
-
    $(document).on('click','a.ReplyComment', function(ev) {
       var btn = this;
       var parent = $(btn).parents('.MainContent');
@@ -58,25 +52,6 @@ jQuery(document).ready(function($) {
       var doc =  this;
       var formElement= $(doc).find('div.CommentForm');
       clearReplyCommentForm($(formElement));
-      return false;
-   });
-
-
-   // Comment was added.
-   $(document).on('CommentAdded',function(ev) {
-      if (reloadPage() === true) {
-         window.location.reload();
-         return false;
-      }
-      return false;
-   });
-
-   // Comment was deleted.
-   $(document).on('CommentDeleted',function(ev) {
-      if (reloadPage() === true) {
-         window.location.reload();
-         return false;
-      }
       return false;
    });
 
