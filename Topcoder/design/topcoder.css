@@ -160,3 +160,7 @@ a:hover span.challengeRoles {
     line-height: 38px !important;
     text-transform: uppercase !important;
 }
+
+.disabledLink {
+    pointer-events:none
+}

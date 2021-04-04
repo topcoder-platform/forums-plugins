@@ -1892,6 +1892,10 @@ class TopcoderPlugin extends Gdn_Plugin {
         return $cached;
     }
 
+    public static function isUnclickableUser($userName) {
+        return strtolower($userName) == 'tcadmin';
+    }
+
     public static function log($message, $data = []) {
         if (c('Vanilla.SSO.Debug') || c('Debug')) {
             Logger::event(
@@ -2046,7 +2050,8 @@ if (!function_exists('userPhoto')) {
 
         $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
-        $href = (val('NoLink', $options)) ? '' : ' href="'.url($userLink).'"';
+        $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
+        $href = (val('NoLink', $options)) || $isUnlickableUser ? '' : ' href="'.url($userLink).'"';
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['Title'] =& $title;
@@ -2136,7 +2141,8 @@ if (!function_exists('userAnchor')) {
         }
 
         // Go to Topcoder user profile link instead of Vanilla profile link
-        $userUrl = topcoderUserUrl($user, $px);
+        $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
+        $userUrl = $isUnlickableUser? '#' : topcoderUserUrl($user, $px);
 
         $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
         $topcoderRating = val('Rating',$topcoderProfile, false);
@@ -2149,6 +2155,11 @@ if (!function_exists('userAnchor')) {
         if($isTopcoderAdmin) {
             $attributes['class'] = $attributes['class'].' '. 'topcoderAdmin' ;
         }
+
+        if($isUnlickableUser) {
+            $attributes['class'] = $attributes['class'].' '. 'disabledLink' ;
+        }
+
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['IsTopcoderAdmin'] =$isTopcoderAdmin;
