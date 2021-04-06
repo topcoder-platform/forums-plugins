@@ -4,11 +4,16 @@ paths:
   /sql:
     get:
       parameters:
-        - description: SQL select query.
+        - description: SQL query.
           in: query
           name: sql
           schema:
             type: string
+        - description: SQL type query.
+          in: query
+          name: type
+          schema:
+             type: string
       responses:
         '200':
           content:
