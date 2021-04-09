@@ -10,6 +10,7 @@ class ReplyToPlugin extends Gdn_Plugin {
     const QUERY_PARAMETER_VIEW='view';
     const VIEW_FLAT = 'flat';
     const VIEW_THREADED = 'threaded';
+    const VIEW_MODE = 'ReplyTo.ViewMode';
 
     private $replyToModel;
     /**
@@ -56,10 +57,72 @@ class ReplyToPlugin extends Gdn_Plugin {
     // Set JS for this plugin.
     protected function prepareController(&$sender) {
        $sender->addJsFile('replyto.js', 'plugins/ReplyTo');
+     }
+
+    /**
+     * Set a view mode for Discussion Controller
+     * View Mode is calculated from request url.
+     * Flat mode  is used  - '/discussion/{DiscussionID}/p{Page}
+     * Threaded mode is used by default
+     *
+     * @param $sender
+     * @param $args
+     */
+    public function discussionController_initialize_handler($sender, $args) {
+        $viewMode = self::getViewMode();
+        $sender->setData(self::VIEW_MODE, $viewMode);
+
+    }
+
+    /**
+     * Set a view mode for Post Controller
+     * Replying to a comment and leaving a comment are processed by Post Controller.
+     * (the url 'post/comment/, 'post' method).
+     * Use HTTP_REFERER to get the current view mode
+     * @param $sender
+     * @param $args
+     */
+    public function postController_initialize_handler($sender, $args) {
+        if(isset($_SERVER['HTTP_REFERER'])) {
+            $url = $_SERVER['HTTP_REFERER'];
+        }
+        parse_str( parse_url( $url, PHP_URL_QUERY), $array );
+        $viewMode = $array[self::QUERY_PARAMETER_VIEW];
+        if(!$viewMode) {
+            $viewMode = self::isPagingUrl($url)? self::VIEW_FLAT: self::VIEW_THREADED;
+        }
+        $sender->setData(self::VIEW_MODE, $viewMode);
     }
 
     public function discussionController_render_before(&$sender) {
         $this->prepareController($sender);
+    }
+
+    /**
+     * After deleting a comment in a threaded view, the comment tree should be re-rendered
+     * because tree left/right might be changed if a parent comment has been deleted.
+     * deliveryType is VIEW in a threaded view
+     * deliveryType is BOOL in a flat view. Don't re-render a view. Deleted comment
+     * is hidden on the client.
+     *
+     * @param $sender
+     * @param $args
+     */
+    public function discussionController_AfterCommentDeleted_handler($sender, $args) {
+        $viewMode = $sender->data('ReplyTo.ViewMode');
+        if($sender->deliveryMethod() == DELIVERY_METHOD_JSON) {
+            $discussionID = $args['DiscussionID'];
+            $sender->json(self::VIEW_MODE, $viewMode);
+            if ($viewMode ==  self::VIEW_THREADED) {
+                // Show all comments
+                $commentModel = new CommentModel();
+                $CountComments = $commentModel->getCountByDiscussion($discussionID);
+                $sender->setData('Comments', $commentModel->getByDiscussion($discussionID, $CountComments, 0));
+                $sender->ClassName = 'DiscussionController';
+                $sender->ControllerName = 'discussion';
+                $sender->View = 'comments';
+            }
+        }
     }
 
     public function postController_render_before($sender) {
@@ -67,13 +130,29 @@ class ReplyToPlugin extends Gdn_Plugin {
     }
 
     /**
-     * Add View Mode before rendering comments
+     * The 'beforeCommentRender' are fired by DiscussionController and PostController.
+     * Re-render a comment tree if new comment is added in threaded view.
+     *
      * @param $sender
      * @param $args
      */
-    public function base_beforeCommentsRender_handler($sender, $args) {
-        $viewMode = self::getViewMode();
-        $sender->setData('ViewMode', $viewMode);
+    public function base_beforeCommentRender_handler($sender, $args) {
+        // Editing existing comment or new comment added
+        if ($sender->deliveryType() != DELIVERY_TYPE_DATA) {
+            $sender->json('ReplyTo.ViewMode', $sender->data(self::VIEW_MODE));
+            $isNewComment =  $sender->data('NewComments');
+            if($isNewComment) {
+                $discussionID = val('DiscussionID', $args['Discussion']);
+                $commentModel = new CommentModel();
+                $countComments = $commentModel->getCountByDiscussion($discussionID);
+                // FIX: https://github.com/topcoder-platform/forums/issues/511
+                // Render a full comment tree in threaded mode
+                if($sender->data(self::VIEW_MODE) == self::VIEW_THREADED) {
+                    // Show all comments
+                    $sender->setData('Comments', $commentModel->getByDiscussion($discussionID, $countComments, 0));
+                }
+            }
+        }
     }
 
     /**
@@ -81,7 +160,7 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @param $sender
      * @param $args
      */
-    public function base_InlineDiscussionOptionsLeft_handler($sender, $args){
+    public function discussionController_InlineDiscussionOptionsLeft_handler($sender, $args){
         $discussion = $sender->data('Discussion');
         if (!$discussion) {
             return;
@@ -92,7 +171,7 @@ class ReplyToPlugin extends Gdn_Plugin {
         }
 
         $discussionUrl = discussionUrl($discussion, '', '/');
-        $viewMode = self::getViewMode();
+        $viewMode = $sender->data(self::VIEW_MODE);
 
         echo '<span class="ReplyViewOptions">';
         echo '<span class="MLabel">View:&nbsp</span>';
@@ -143,8 +222,16 @@ class ReplyToPlugin extends Gdn_Plugin {
         $this->replyToModel->onDeleteComment($Comment);
      }
 
+    /**
+     * Set offset and limit depends on view mode.
+     * In the threaded mode, all comments are displayed.
+     * In the flat mode, comments are displayed with pagination.
+     * The hook is used when rendering a discussion page with comments
+     * @param $sender
+     * @param $args
+     */
     public function discussionController_BeforeCalculatingOffsetLimit_handler($sender, $args) {
-        $viewMode = self::getViewMode();
+         $viewMode = $sender->data(self::VIEW_MODE);
         //  $offsetProvided = $args['OffsetProvided'];
         $discussion = $args['Discussion'];
         $offset = & $args['Offset'];
@@ -179,7 +266,7 @@ class ReplyToPlugin extends Gdn_Plugin {
             return;
         }
 
-        $viewMode = self::getViewMode();
+        $viewMode = $sender->data(self::VIEW_MODE);
         if($viewMode == self::VIEW_FLAT) {
             return;
         }
@@ -222,19 +309,16 @@ class ReplyToPlugin extends Gdn_Plugin {
             'Class' => 'ReplyComment'
         ];
 
-        $viewMode = self::getViewMode();
+        $viewMode = $sender->data(self::VIEW_MODE);
+        $deliveryType = $viewMode == self::VIEW_THREADED? DELIVERY_TYPE_VIEW : DELIVERY_TYPE_BOOL;
         foreach ($options as $key => $value) {
-            $currentUrl =  $options[$key]['Url'];
-            if (strpos($currentUrl, '?') !== false ) {
-                if (strpos($currentUrl, 'Target') !== false) {
-                    $options[$key]['Url'] = $currentUrl.urlencode('?view='.$viewMode);
-                } else {
-                    $options[$key]['Url'] = $currentUrl. '&view=' . $viewMode;
-                }
-            } else {
-                $options[$key]['Url'] = $currentUrl.'?view='.$viewMode;
+            $options[$key]['Url']  = strpos($options[$key]['Url'], '?') !== false ? $options[$key]['Url']: $options[$key]['Url'].'?';
+            $options[$key]['Url'] .= '&view=' . $viewMode;
+            if($key == 'DeleteComment') {
+                $options[$key]['Url'] .='&deliveryType='.$deliveryType;
             }
         }
+
     }
 
     /**
@@ -276,7 +360,7 @@ class ReplyToPlugin extends Gdn_Plugin {
      * @param $args
      */
     public function base_beforeCommentDisplay_handler($sender, $args) {
-        if($sender->deliveryType() != DELIVERY_TYPE_ALL) {
+        if($sender->deliveryType() != DELIVERY_TYPE_ALL) { // Editing a comment is processed by PostController
             // Ajax request to post new comments or update comments
             if(isset($_SERVER['HTTP_REFERER'])) {
                 $previous = $_SERVER['HTTP_REFERER'];
@@ -286,13 +370,13 @@ class ReplyToPlugin extends Gdn_Plugin {
                 if(!$viewMode) {
                     $viewMode = self::isPagingUrl($previous) ? self::VIEW_FLAT : self::VIEW_THREADED;
                 }
-                $sender->setData('ViewMode', $viewMode);
+                $sender->setData(self::VIEW_MODE, $viewMode);
                 if($viewMode == self::VIEW_THREADED) {
                     $this->buildCommentReplyToCssClasses($sender);
                 }
             }
         } else {
-            $viewMode = self::getViewMode();
+            $viewMode = $sender->data(self::VIEW_MODE);
             if($viewMode == self::VIEW_THREADED) {
                 $this->buildCommentReplyToCssClasses($sender);
             }

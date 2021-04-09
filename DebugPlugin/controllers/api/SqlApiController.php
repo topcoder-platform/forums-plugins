@@ -22,17 +22,19 @@ class SqlApiController extends AbstractApiController {
         $this->permission('Garden.Settings.Manage');
 
         $in = $this->schema([
-            'sql:s' => 'Sql query'
+            'sql:s' => 'Sql query',
+            'type:s' => 'Type'
         ], 'in')->setDescription('Get a list of records.');
 
         $query = $in->validate($query);
         $sql = $query['sql'];
+        $type = $query['type'];
 
-        if (strpos(strtolower($sql), 'select') !== 0) {
-            throw new ClientException('Unable to execute this query.');
-        }
+      //  if (strpos(strtolower($sql), 'select') !== 0) {
+      //      throw new ClientException('Unable to execute this query.');
+      //  }
 
-        $data = Gdn::sql()->query($sql, 'select')->resultArray();
+        $data = Gdn::sql()->query($sql, $type)->resultArray();
         return $data;
     }
 

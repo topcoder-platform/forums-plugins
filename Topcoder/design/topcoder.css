@@ -69,44 +69,59 @@ a.coderRatingRed:hover, a.coderRatingYellow:hover, a.coderRatingBlue:hover, a.co
 .MessageList .ItemDiscussion .Username.coderRatingRed, .MessageList .ItemDiscussion .Username.coderRatingRed:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.coderRatingRed,
 .Flyout.Flyout a.coderRatingRed, .Flyout.Flyout a.coderRatingRed:link, .Flyout.Flyout a.coderRatingRed:hover, .Flyout.Flyout a.coderRatingRed:active, .Flyout.Flyout a.coderRatingRed:visited,
-.userContent p a.coderRatingRed, .userContent p a.coderRatingRed:link, .userContent p a.coderRatingRed:hover, .userContent p a.coderRatingRed:active, .userContent p a.coderRatingRed:visited { color: #EE0000 !important; }
+.userContent p a.coderRatingRed, .userContent p a.coderRatingRed:link, .userContent p a.coderRatingRed:hover, .userContent p a.coderRatingRed:active, .userContent p a.coderRatingRed:visited,
+.InformMessages .InformMessage .coderRatingRed, .InformMessages .InformMessage .coderRatingRed:link, .InformMessages .InformMessage .coderRatingRed:hover, .InformMessages .InformMessage .coderRatingRed:active, .InformMessages .InformMessage .coderRatingRed:visited
+{ color: #EE0000 !important; }
 /* Yellow */
 .DataList .MItem a.coderRatingYellow, .DataList .MItem a.coderRatingYellow:link, .DataList .MItem a.coderRatingYellow:hover, .DataList .MItem a.coderRatingYellow:visited,
 .MessageList .ItemDiscussion .Username.coderRatingYellow, .MessageList .ItemDiscussion .Username.coderRatingYellow:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.coderRatingYellow,
 .Flyout.Flyout a.coderRatingYellow, .Flyout.Flyout a.coderRatingYellow:link, .Flyout.Flyout a.coderRatingYellow:hover, .Flyout.Flyout a.coderRatingYellow:active, .Flyout.Flyout a.coderRatingYellow:visited,
-.userContent p a.coderRatingYellow, .userContent p a.coderRatingYellow:link, .userContent p a.coderRatingYellow:hover, .userContent p a.coderRatingYellow:active, .userContent p a.coderRatingYellow:visited { color: #DDCC00 !important; }
+.userContent p a.coderRatingYellow, .userContent p a.coderRatingYellow:link, .userContent p a.coderRatingYellow:hover, .userContent p a.coderRatingYellow:active, .userContent p a.coderRatingYellow:visited,
+.InformMessages .InformMessage .coderRatingYellow, .InformMessages .InformMessage .coderRatingYellow:link, .InformMessages .InformMessage .coderRatingYellow:hover, .InformMessages .InformMessage .coderRatingYellow:active, .InformMessages .InformMessage .coderRatingYellow:visited
+{ color: #DDCC00 !important; }
 /* Blue */
 .DataList .MItem a.coderRatingBlue, .DataList .MItem a.coderRatingBlue:link, .DataList .MItem a.coderRatingBlue:hover, .DataList .MItem a.coderRatingBlue:visited,
 .MessageList .ItemDiscussion .Username.coderRatingBlue, .MessageList .ItemDiscussion .Username.coderRatingBlue:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.coderRatingBlue,
 .Flyout.Flyout a.coderRatingBlue, .Flyout.Flyout a.coderRatingBlue:link, .Flyout.Flyout a.coderRatingBlue:active, .Flyout.Flyout a.coderRatingBlue:hover, .Flyout.Flyout a.coderRatingBlue:visited,
-.userContent p a.coderRatingBlue, .userContent p a.coderRatingBlue:link, .userContent p a.coderRatingBlue:active, .userContent p a.coderRatingBlue:hover, .userContent p a.coderRatingBlue:visited{ color: #6666FF !important; }
+.userContent p a.coderRatingBlue, .userContent p a.coderRatingBlue:link, .userContent p a.coderRatingBlue:active, .userContent p a.coderRatingBlue:hover, .userContent p a.coderRatingBlue:visited,
+.InformMessages .InformMessage .coderRatingBlue, .InformMessages .InformMessage .coderRatingBlue:link, .InformMessages .InformMessage .coderRatingBlue:hover, .InformMessages .InformMessage .coderRatingBlue:active, .InformMessages .InformMessage .coderRatingBlue:visited
+{ color: #6666FF !important; }
+
 /* Green */
 .DataList .MItem a.coderRatingGreen, .DataList .MItem a.coderRatingGreen:link, .DataList .MItem a.coderRatingGreen:hover, .DataList .MItem a.coderRatingGreen:visited,
 .MessageList .ItemDiscussion .Username.coderRatingGreen,.MessageList .ItemDiscussion .Username.coderRatingGreen:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.coderRatingGreen,
 .Flyout.Flyout a.coderRatingGreen, .Flyout.Flyout a.coderRatingGreen:link, .Flyout.Flyout a.coderRatingGreen:active, .Flyout.Flyout a.coderRatingGreen:hover, .Flyout.Flyout a.coderRatingGreen:visited,
-.userContent p a.coderRatingGreen, .userContent p a.coderRatingGreen:link, .userContent p a.coderRatingGreen:active, .userContent p a.coderRatingGreen:hover, .userContent p a.coderRatingGreen:visited { color: #00A900 !important; }
+.userContent p a.coderRatingGreen, .userContent p a.coderRatingGreen:link, .userContent p a.coderRatingGreen:active, .userContent p a.coderRatingGreen:hover, .userContent p a.coderRatingGreen:visited,
+.InformMessages .InformMessage .coderRatingGreen, .InformMessages .InformMessage .coderRatingGreen:link, .InformMessages .InformMessage .coderRatingGreen:hover, .InformMessages .InformMessage .coderRatingGreen:active, .InformMessages .InformMessage .coderRatingGreen:visited
+{ color: #00A900 !important; }
 /* Gray */
 .DataList .MItem a.coderRatingGrey, .DataList .MItem a.coderRatingGrey:link, .DataList .MItem a.coderRatingGrey:hover, .DataList .MItem a.coderRatingGrey:visited,
 .MessageList .ItemDiscussion .Username.coderRatingGrey,.MessageList .ItemDiscussion .Username.coderRatingGrey:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.coderRatingGrey,
 .Flyout.Flyout a.coderRatingGrey, .Flyout.Flyout a.coderRatingGrey:link, .Flyout.Flyout a.coderRatingGrey:active, .Flyout.Flyout a.coderRatingGrey:hover, .Flyout.Flyout a.coderRatingGrey:visited,
-.userContent p a.coderRatingGrey, .userContent p a.coderRatingGrey:link, .userContent p a.coderRatingGrey:active, .userContent p a.coderRatingGrey:hover, .userContent p a.coderRatingGrey:visited{ color: #999999 !important; }
+.userContent p a.coderRatingGrey, .userContent p a.coderRatingGrey:link, .userContent p a.coderRatingGrey:active, .userContent p a.coderRatingGrey:hover, .userContent p a.coderRatingGrey:visited,
+.InformMessages .InformMessage .coderRatingGrey, .InformMessages .InformMessage .coderRatingGrey:link, .InformMessages .InformMessage .coderRatingGrey:hover, .InformMessages .InformMessage .coderRatingGrey:active, .InformMessages .InformMessage .coderRatingGrey:visited
+{ color: #999999 !important; }
 
 .DataList .MItem a.coderRatingNone, .DataList .MItem a.coderRatingNone:link, .DataList .MItem a.coderRatingNone:hover, .DataList .MItem a.coderRatingNone:visited,
 .MessageList .ItemDiscussion .Username.coderRatingNone, .MessageList .ItemDiscussion .Username.coderRatingNone:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.coderRatingNone,
 .Flyout.Flyout a.coderRatingNone, .Flyout.Flyout a.coderRatingNone:link, .Flyout.Flyout a.coderRatingNone:active, .Flyout.Flyout a.coderRatingNone:hover, .Flyout.Flyout a.coderRatingNone:visited,
-.userContent p a.coderRatingNone, .userContent p a.coderRatingNone:link, .userContent p a.coderRatingNone:active, .userContent p a.coderRatingNone:hover, .userContent p a.coderRatingNone:visited { color:  #000000; !important;}
+.userContent p a.coderRatingNone, .userContent p a.coderRatingNone:link, .userContent p a.coderRatingNone:active, .userContent p a.coderRatingNone:hover, .userContent p a.coderRatingNone:visited,
+.InformMessages .InformMessage .coderRatingNone, .InformMessages .InformMessage .coderRatingNone:link, .InformMessages .InformMessage .coderRatingNone:hover, .InformMessages .InformMessage .coderRatingNone:active, .InformMessages .InformMessage .coderRatingNone:visited
+{ color:  #000000; !important;}
 
 /* Topcoder Admin */
 .DataList .MItem a.topcoderAdmin, .DataList .MItem a.topcoderAdmin:link, .DataList .MItem a.topcoderAdmin:hover, .DataList .MItem a.topcoderAdmin:visited,
 .MessageList .ItemDiscussion .Username.topcoderAdmin, .MessageList .ItemDiscussion .Username.topcoderAdmin:hover,
 .Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.topcoderAdmin,
 .Flyout.Flyout a.topcoderAdmin, .Flyout.Flyout a.topcoderAdmin:link,.Flyout.Flyout a.topcoderAdmin:visited, .Flyout.Flyout a.topcoderAdmin:hover, .Flyout.Flyout a.topcoderAdmin:active,
-.userContent p a.topcoderAdmin, .userContent p a.topcoderAdmin:link, .userContent p a.topcoderAdmin:visited, .userContent p a.topcoderAdmin:hover, .userContent p a.topcoderAdmin:active { color: #ff9900 !important;  }
+.userContent p a.topcoderAdmin, .userContent p a.topcoderAdmin:link, .userContent p a.topcoderAdmin:visited, .userContent p a.topcoderAdmin:hover, .userContent p a.topcoderAdmin:active,
+.InformMessages .InformMessage .topcoderAdmin, .InformMessages .InformMessage .topcoderAdmin:link, .InformMessages .InformMessage .topcoderAdmin:hover, .InformMessages .InformMessage .topcoderAdmin:active, .InformMessages .InformMessage .topcoderAdmin:visited
+{ color: #ff9900 !important;  }
 
 a:hover span.topcoderHandle{
     text-decoration: underline;
@@ -125,4 +140,27 @@ a:hover span.challengeRoles {
 .Media-Location .Breadcrumbs {
     padding: 0px 0px;
     text-transform: none;
+}
+
+.Topcoder h2.HomepageTitle {
+    font-family: Barlow_Condensed, Helvetica, Arial, sans-serif;
+    font-weight: 500;
+    color: #2a2a2a !important;
+    font-size: 24px !important;
+    font-weight: 500 !important;
+    line-height: 28px !important;
+    text-transform: uppercase !important;
+}
+.Topcoder h1.HomepageTitle {
+    font-family: Barlow_Condensed, Helvetica, Arial, sans-serif;
+    font-weight: 500;
+    color: #2a2a2a !important;
+    font-size: 34px !important;
+    font-weight: 500 !important;
+    line-height: 38px !important;
+    text-transform: uppercase !important;
+}
+
+.disabledLink {
+    pointer-events:none
 }
