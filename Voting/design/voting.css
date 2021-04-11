@@ -1,0 +1,10 @@
+.Voter .CountVoices{
+    margin-left: 10px;
+    margin-right: 10px;
+}
+.Voter  a{
+     color: #C0C0C0;
+}
+.Voted {
+    color: #0AB88A;
+}
