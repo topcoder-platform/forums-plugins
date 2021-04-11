@@ -39,12 +39,23 @@ class VotingPlugin extends Gdn_Plugin {
             $cssClassVoteDown = ' Voted';
         }
 
+        $formattedScore = $this->formattedScore($score);
         echo '<span class="Voter">';
         echo Anchor(Wrap('Vote Up', 'span', array('class' => 'ArrowSprite SpriteUp'.$cssClassVoteUp , 'rel' => 'nofollow')), $voteUpUrl, 'VoteUp'.$cssClass);
-        echo Wrap(StringIsNullOrEmpty($score) ? '0' : Gdn_Format::BigNumber($score), 'span', array('class' => 'CountVoices'));
+        echo Wrap($formattedScore, 'span', array('class' => 'CountVoices'));
         echo Anchor(Wrap('Vote Down', 'span', array('class' => 'ArrowSprite SpriteDown'.$cssClassVoteDown, 'rel' => 'nofollow')), $voteDownUrl, 'VoteDown'.$cssClass);
         echo '</span>&nbsp;|&nbsp;';
 
+    }
+
+    private function formattedScore($score) {
+        if(StringIsNullOrEmpty($score)) {
+            $formattedScore = '0';
+        } else {
+            $formattedScore = $score <= 0 ? Gdn_Format::BigNumber($score):'+' . Gdn_Format::BigNumber($score);
+        }
+
+        return $formattedScore;
     }
 
 
@@ -103,7 +114,7 @@ class VotingPlugin extends Gdn_Plugin {
             $Total = $CommentModel->SetUserScore($CommentID, $Session->UserID, $FinalVote);
         }
         $sender->DeliveryType(DELIVERY_TYPE_BOOL);
-        $sender->SetJson('TotalScore', $Total);
+        $sender->SetJson('TotalScore', $this->formattedScore($Total));
         $sender->SetJson('FinalVote', $FinalVote);
         $sender->SetJson('VoteUpCssClass', $FinalVote > 0? 'Voted':'');
         $sender->SetJson('VoteDownCssClass', $FinalVote < 0? 'Voted':'');
@@ -149,7 +160,7 @@ class VotingPlugin extends Gdn_Plugin {
             $Total = $DiscussionModel->SetUserScore($DiscussionID, $Session->UserID, $FinalVote);
         }
         $sender->DeliveryType(DELIVERY_TYPE_BOOL);
-        $sender->SetJson('TotalScore', $Total);
+        $sender->SetJson('TotalScore', $this->formattedScore($Total));
         $sender->SetJson('FinalVote', $FinalVote);
         $sender->SetJson('VoteUpCssClass', $FinalVote > 0? 'Voted':'');
         $sender->SetJson('VoteDownCssClass', $FinalVote < 0? 'Voted':'');
