@@ -346,8 +346,8 @@ if (!function_exists('formattedPScore')) {
 }
 
 if (!function_exists('generateVoterBox')) {
-    function generateVoterBox($id, $VoteType, $pScore, $nScore, $currentUserVote)
-    {
+    function generateVoterBox($id, $VoteType, $pScore, $nScore, $currentUserVote) {
+
         $cssClassVoteUp = 'SpriteVoteUp';
         $cssClassVoteDown = 'SpriteVoteDown';
         if($currentUserVote > 0) {
@@ -359,6 +359,12 @@ if (!function_exists('generateVoterBox')) {
         $voterBoxID = 'Voter_' . $VoteType . '_' . $id;
         $voteUpUrl = '/discussion/vote' . strtolower($VoteType) . '/' . $id . '/voteup/' . Gdn::session()->TransientKey() . '/';
         $voteDownUrl = '/discussion/vote' . strtolower($VoteType) . '/' . $id . '/votedown/' . Gdn::session()->TransientKey() . '/';
+
+        if (!Gdn::session()->IsValid()) {
+            $voteUpUrl = Gdn::Authenticator()->SignInUrl(Gdn::controller()->SelfUrl);
+            $voteDownUrl = Gdn::Authenticator()->SignInUrl(Gdn::controller()->SelfUrl);
+        }
+
         $result = '<span id="' . $voterBoxID . '" class="Voter">';
         $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteUp, 'rel' => 'nofollow')), $voteUpUrl, 'VoteUp');
         $counts = formattedPScore($pScore);
