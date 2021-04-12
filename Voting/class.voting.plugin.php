@@ -361,7 +361,11 @@ if (!function_exists('generateVoterBox')) {
         $voteDownUrl = '/discussion/vote' . strtolower($VoteType) . '/' . $id . '/votedown/' . Gdn::session()->TransientKey() . '/';
         $result = '<span id="' . $voterBoxID . '" class="Voter">';
         $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteUp, 'rel' => 'nofollow')), $voteUpUrl, 'VoteUp');
-        $result .= Wrap(formattedPScore($pScore) . '<span class="VoiceDivider">/</span>' . formattedNScore($nScore), 'span', array('class' => 'CountVoices'));
+        $counts = formattedPScore($pScore);
+        if(!StringIsNullOrEmpty($nScore) && $nScore != 0) {
+            $counts .= '<span class="VoiceDivider">/</span>' . formattedNScore($nScore);
+        }
+        $result .= Wrap($counts, 'span', array('class' => 'CountVoices'));
         $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteDown, 'rel' => 'nofollow')), $voteDownUrl, 'VoteDown');
         $result .= '</span>';
 
