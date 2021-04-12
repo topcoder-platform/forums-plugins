@@ -3,6 +3,12 @@
 class VotingPlugin extends Gdn_Plugin {
 
     /**
+     * Database updates.
+     */
+    public function structure() {
+        include __DIR__.'/structure.php';
+    }
+    /**
      * Add JS & CSS to the page.
      */
     public function AddJsCss($Sender) {
@@ -15,10 +21,9 @@ class VotingPlugin extends Gdn_Plugin {
         $object = $args['Object'];
         $VoteType = $args['Type'] == 'Discussion' ? 'votediscussion' : 'votecomment';
         $id = $args['Type'] == 'Discussion' ? val('DiscussionID', $object) : val('CommentID', $object);
-        $score = val('Score', $object);
+        $pScore = val('PScore', $object);
+        $nScore = val('NScore', $object);
         $cssClass = '';
-        $voteUpUrl = '/discussion/'.$VoteType.'/'.$id.'/voteup/'.$session->TransientKey().'/';
-        $voteDownUrl = '/discussion/'.$VoteType.'/'.$id.'/votedown/'.$session->TransientKey().'/';
         if (!$session->IsValid()) {
             $voteUpUrl = Gdn::Authenticator()->SignInUrl($sender->SelfUrl);
             $voteDownUrl = $voteUpUrl;
@@ -32,30 +37,9 @@ class VotingPlugin extends Gdn_Plugin {
             $commentModel = new CommentModel();
             $currentUserVote = $commentModel->GetUserScore($id, $session->UserID);
         }
-        $cssClassVoteUp = $cssClassVoteDown = '';
-        if($currentUserVote > 0) {
-            $cssClassVoteUp = ' Voted';
-        } else if($currentUserVote < 0){
-            $cssClassVoteDown = ' Voted';
-        }
 
-        $formattedScore = $this->formattedScore($score);
-        echo '<span class="Voter">';
-        echo Anchor(Wrap('Vote Up', 'span', array('class' => 'ArrowSprite SpriteUp'.$cssClassVoteUp , 'rel' => 'nofollow')), $voteUpUrl, 'VoteUp'.$cssClass);
-        echo Wrap($formattedScore, 'span', array('class' => 'CountVoices'));
-        echo Anchor(Wrap('Vote Down', 'span', array('class' => 'ArrowSprite SpriteDown'.$cssClassVoteDown, 'rel' => 'nofollow')), $voteDownUrl, 'VoteDown'.$cssClass);
-        echo '</span>&nbsp;|&nbsp;';
+        echo generateVoterBox($id,$args['Type'], $pScore, $nScore,  $currentUserVote ).'<span class="line"></span>';
 
-    }
-
-    private function formattedScore($score) {
-        if(StringIsNullOrEmpty($score)) {
-            $formattedScore = '0';
-        } else {
-            $formattedScore = $score <= 0 ? Gdn_Format::BigNumber($score):'+' . Gdn_Format::BigNumber($score);
-        }
-
-        return $formattedScore;
     }
 
 
@@ -79,7 +63,145 @@ class VotingPlugin extends Gdn_Plugin {
         $this->AddJsCss($sender);
     }
 
+    /**
+     * Sets the discussion score for specified user.
+     *
+     * @param int $discussionID Unique ID of discussion to update.
+     * @param int $userID Unique ID of user setting score.
+     * @param int $score New score for discussion.
+     * @return int Total score.
+     */
+    public function discussionModel_setUserScores_create($sender) {
+        $discussionID = val(0, $sender->EventArguments);
+        $userID = val(1, $sender->EventArguments);
+        $score = val(2, $sender->EventArguments);
+        $prevScore = val(3, $sender->EventArguments);
 
+
+        // Insert or update the UserDiscussion row
+        $sender->SQL->replace(
+            'UserDiscussion',
+            ['Score' => $score],
+            ['DiscussionID' => $discussionID, 'UserID' => $userID]
+        );
+
+        // Get the current total score
+        $totalScore = $sender->SQL->select('Score', 'sum', 'TotalScore')
+            ->select('NScore', 'sum', 'TotalNScore')
+            ->select('PScore', 'sum', 'TotalPScore')
+            ->from('Discussion')
+            ->where('DiscussionID', $discussionID)
+            ->get()
+            ->firstRow();
+
+        $pScore = 0;
+        $nScore = 0;
+        if($totalScore) {
+            $pScore = $totalScore->TotalPScore? $totalScore->TotalPScore : 0;
+            $nScore = $totalScore->TotalNScore? $totalScore->TotalNScore: 0;
+        }
+        if ($prevScore == null) {
+            $pScore = $score > 0? $pScore+1 : $pScore;
+            $nScore = $score < 0? $nScore+1 : $nScore;
+            $tScore = $pScore+$nScore;
+        } else {
+            if ($score == 0) { // cancelled a vote
+                $pScore = $prevScore > 0 ? $pScore - 1 : $pScore;
+                $nScore = $prevScore < 0 ? $nScore - 1 : $nScore;
+                $tScore = $pScore + $nScore;
+            } else { //change a vote
+                $pScore = $pScore + $score ;
+                $nScore = $nScore + (-1)*$score;
+                $tScore = $pScore + $nScore;
+            }
+        }
+
+        // Update the Discussion's cached version
+        $sender->SQL->update('Discussion')
+            ->set('Score', $tScore)
+            ->set('PScore', $pScore )
+            ->set('NScore', $nScore)
+            ->where('DiscussionID', $discussionID)
+            ->put();
+
+        $updatedTotalScores = $sender->SQL->select('Score', 'sum', 'TotalScore')
+            ->select('NScore', 'sum', 'TotalNScore')
+            ->select('PScore', 'sum', 'TotalPScore')
+            ->from('Discussion')
+            ->where('DiscussionID', $discussionID)
+            ->get()
+            ->firstRow();
+        return $updatedTotalScores;
+    }
+
+    /**
+     * Upadte Comment Score value for the specified user and update Total Comment Scores
+     *
+     * @param int $commentID Unique ID of comment we're getting the score for.
+     * @param int $userID Unique ID of user who scored the comment.
+     */
+    public function commentModel_setUserScores_create($sender) {
+
+        $commentID = val(0, $sender->EventArguments);
+        $userID = val(1, $sender->EventArguments);
+        $score = val(2, $sender->EventArguments);
+        $prevScore = val(3, $sender->EventArguments);
+
+        // Insert or update the UserComment row
+        $sender->SQL->replace(
+            'UserComment',
+            ['Score' => $score],
+            ['CommentID' => $commentID, 'UserID' => $userID]
+        );
+
+        $totalScore = $sender->SQL->select('Score', 'sum', 'TotalScore')
+            ->select('NScore', 'sum', 'TotalNScore')
+            ->select('PScore', 'sum', 'TotalPScore')
+            ->from('Comment')
+            ->where('CommentID', $commentID)
+            ->get()
+            ->firstRow();
+
+        $pScore = 0;
+        $nScore = 0;
+
+        if($totalScore) {
+            $pScore = $totalScore->TotalPScore? $totalScore->TotalPScore : 0;
+            $nScore = $totalScore->TotalNScore? $totalScore->TotalNScore: 0;
+        }
+        if ($prevScore == null) {
+            $pScore = $score > 0? $pScore+1 : $pScore;
+            $nScore = $score < 0? $nScore+1 : $nScore;
+            $tScore = $pScore+$nScore;
+        } else {
+            if ($score == 0) { // cancelled a vote
+                $pScore = $prevScore > 0 ? $pScore - 1 : $pScore;
+                $nScore = $prevScore < 0 ? $nScore - 1 : $nScore;
+                $tScore = $pScore + $nScore;
+            } else { //change a vote
+                $pScore = $pScore + $score ;
+                $nScore = $nScore + (-1)*$score;
+                $tScore = $pScore + $nScore;
+            }
+        }
+
+        // Update the comment's cached version
+        $sender->SQL->update('Comment')
+            ->set('Score', $tScore)
+            ->set('PScore', $pScore )
+            ->set('NScore', $nScore)
+            ->where('CommentID', $commentID)
+            ->put();
+
+        $updatedTotalScores = $sender->SQL->select('Score', 'sum', 'TotalScore')
+            ->select('NScore', 'sum', 'TotalNScore')
+            ->select('PScore', 'sum', 'TotalPScore')
+            ->from('Comment')
+            ->where('CommentID', $commentID)
+            ->get()
+            ->firstRow();
+        return $updatedTotalScores;
+    }
     /**
      * Increment/decrement comment scores
      */
@@ -110,15 +232,16 @@ class VotingPlugin extends Gdn_Plugin {
             } else {
                 $FinalVote = $NewUserVote;
             }
-
-            $Total = $CommentModel->SetUserScore($CommentID, $Session->UserID, $FinalVote);
         }
-        $sender->DeliveryType(DELIVERY_TYPE_BOOL);
-        $sender->SetJson('TotalScore', $this->formattedScore($Total));
-        $sender->SetJson('FinalVote', $FinalVote);
-        $sender->SetJson('VoteUpCssClass', $FinalVote > 0? 'Voted':'');
-        $sender->SetJson('VoteDownCssClass', $FinalVote < 0? 'Voted':'');
-        $sender->Render();
+
+        $Total = $CommentModel->SetUserScores($CommentID, $Session->UserID, $FinalVote, $OldUserVote);
+        $sender->DeliveryType(DELIVERY_TYPE_VIEW);
+        $voterBoxID = '#Voter_Comment_'.$CommentID;
+        $pScore = val('TotalPScore', $Total);
+        $nScore = val('TotalNScore', $Total);
+        $html = generateVoterBox($CommentID,'Comment', $pScore, $nScore, $FinalVote);
+        $sender->jsonTarget($voterBoxID, $html, 'ReplaceWith');
+        $sender->render('Blank', 'Utility', 'Dashboard');
     }
 
     /**
@@ -126,15 +249,9 @@ class VotingPlugin extends Gdn_Plugin {
      */
     public function discussionController_VoteDiscussion_create($sender) {
         $DiscussionID = GetValue(0, $sender->RequestArgs, 0);
-        $TransientKey = GetValue(1, $sender->RequestArgs);
-        $VoteType = FALSE;
-        if ($TransientKey == 'voteup' || $TransientKey == 'votedown') {
-            $VoteType = $TransientKey;
-            $TransientKey = GetValue(2, $sender->RequestArgs);
-        }
+        $VoteType = GetValue(1, $sender->RequestArgs);
+        $TransientKey = GetValue(2, $sender->RequestArgs);
         $Session = Gdn::Session();
-        $NewUserVote = 0;
-        $Total = 0;
         if ($Session->IsValid() && $Session->ValidateTransientKey($TransientKey) && $DiscussionID > 0) {
             $DiscussionModel = new DiscussionModel();
             $OldUserVote = $DiscussionModel->GetUserScore($DiscussionID, $Session->UserID);
@@ -157,14 +274,15 @@ class VotingPlugin extends Gdn_Plugin {
             } else {
                 $FinalVote = $NewUserVote;
             }
-            $Total = $DiscussionModel->SetUserScore($DiscussionID, $Session->UserID, $FinalVote);
+            $Total = $DiscussionModel->SetUserScores($DiscussionID, $Session->UserID, $FinalVote,$OldUserVote);
+            $sender->DeliveryType(DELIVERY_TYPE_VIEW);
+            $voterBoxID = '#Voter_Discussion_'.$DiscussionID;
+            $pScore = val('TotalPScore', $Total);
+            $nScore = val('TotalNScore', $Total);
+            $html = generateVoterBox($DiscussionID,'Discussion', $pScore, $nScore, $FinalVote);
+            $sender->jsonTarget($voterBoxID, $html, 'ReplaceWith');
+            $sender->render('Blank', 'Utility', 'Dashboard');
         }
-        $sender->DeliveryType(DELIVERY_TYPE_BOOL);
-        $sender->SetJson('TotalScore', $this->formattedScore($Total));
-        $sender->SetJson('FinalVote', $FinalVote);
-        $sender->SetJson('VoteUpCssClass', $FinalVote > 0? 'Voted':'');
-        $sender->SetJson('VoteDownCssClass', $FinalVote < 0? 'Voted':'');
-        $sender->Render();
     }
 
     /**
@@ -182,6 +300,7 @@ class VotingPlugin extends Gdn_Plugin {
     }
 
     public function Setup() {
+        $this->structure();
     }
 
     public function OnDisable() {
@@ -197,5 +316,59 @@ class VotingPlugin extends Gdn_Plugin {
             ->addLinkToSectionIf('Garden.Settings.Manage', 'Moderation', t('Comments'), '/voting/comments',
                 'voting.comments', '', $sort);
 
+    }
+}
+
+if (!function_exists('formattedNScore')) {
+   function formattedNScore($score)
+    {
+        if (StringIsNullOrEmpty($score)) {
+            $formattedScore = '-0';
+        } else {
+            $formattedScore = '-' . Gdn_Format::BigNumber($score);
+        }
+
+        return $formattedScore;
+    }
+}
+
+if (!function_exists('formattedPScore')) {
+    function formattedPScore($score)
+    {
+        if (StringIsNullOrEmpty($score)) {
+            $formattedScore = '+0';
+        } else {
+            $formattedScore = '+' . Gdn_Format::BigNumber($score);
+        }
+
+        return $formattedScore;
+    }
+}
+
+if (!function_exists('generateVoterBox')) {
+    function generateVoterBox($id, $VoteType, $pScore, $nScore, $currentUserVote)
+    {
+        $cssClassVoteUp = 'SpriteVoteUp';
+        $cssClassVoteDown = 'SpriteVoteDown';
+        if($currentUserVote > 0) {
+            $cssClassVoteUp = 'SpriteVoteUpActive';
+        } else if($currentUserVote < 0){
+            $cssClassVoteDown = 'SpriteVoteDownActive';
+        }
+
+        $voterBoxID = 'Voter_' . $VoteType . '_' . $id;
+        $voteUpUrl = '/discussion/vote' . strtolower($VoteType) . '/' . $id . '/voteup/' . Gdn::session()->TransientKey() . '/';
+        $voteDownUrl = '/discussion/vote' . strtolower($VoteType) . '/' . $id . '/votedown/' . Gdn::session()->TransientKey() . '/';
+        $result = '<span id="' . $voterBoxID . '" class="Voter">';
+        $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteUp, 'rel' => 'nofollow')), $voteUpUrl, 'VoteUp');
+        $counts = formattedPScore($pScore);
+        if(!StringIsNullOrEmpty($nScore) && $nScore != 0) {
+            $counts .= '<span class="VoiceDivider">/</span>' . formattedNScore($nScore);
+        }
+        $result .= Wrap($counts, 'span', array('class' => 'CountVoices'));
+        $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteDown, 'rel' => 'nofollow')), $voteDownUrl, 'VoteDown');
+        $result .= '</span>';
+
+        return $result;
     }
 }

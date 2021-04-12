@@ -19,8 +19,9 @@ $sender = Gdn::controller();
             <thead>
             <tr>
                 <th class="column-lg"><?php echo t('Discussion'); ?></th>
-                <th class="column-md"><?php echo anchor(t('Votes'), $this->_OrderDiscussionsUrl('top')); ?></th>
-                <th class="column-md"><?php echo anchor(t('Views'), $this->_OrderDiscussionsUrl('views')); ?></th>
+                <th class="column-md"><?php echo anchor(t('Total Votes'), $this->_OrderDiscussionsUrl('totalvotes')); ?></th>
+                <th class="column-md"><?php echo anchor(t('Up Votes'), $this->_OrderDiscussionsUrl('votesup')); ?></th>
+                <th class="column-md"><?php echo anchor(t('Down Votes'), $this->_OrderDiscussionsUrl('votesdown')); ?></th>
                 <th class="column-md"><?php echo anchor(t('Comments'), $this->_OrderDiscussionsUrl('comments')); ?></th>
                 <th class="options column-checkbox"></th>
             </tr>

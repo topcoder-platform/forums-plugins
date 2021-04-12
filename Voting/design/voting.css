@@ -8,3 +8,67 @@
 .Voted {
     color: #0AB88A;
 }
+
+.SpriteVoteUp {
+    width: 17px;
+    height: 18px;
+    vertical-align: middle;
+    line-height: inherit;
+}
+
+span.SpriteVoteUp::before {
+     content: "";
+     width: 17px;
+     height: 18px;
+     background: url(./images/thump_up_inactive.svg);
+     background-size: 17px 18px;
+     background-position: center;
+     font-size: 0 !important;
+     background-repeat: no-repeat;
+ }
+
+span.SpriteVoteUpActive::before {
+    content: "";
+    width: 17px;
+    height: 18px;
+    background: url(./images/thump_up_active.svg);
+    background-size: 17px 18px;
+    background-position: center;
+    font-size: 0 !important;
+    background-repeat: no-repeat;
+}
+
+
+span.SpriteVoteDown::before {
+    content: "";
+    width: 17px;
+    height: 18px;
+    background: url(./images/thumb_down_inactive.png);
+    background-size: 17px 18px;
+    background-position: center;
+    font-size: 0 !important;
+    background-repeat: no-repeat;
+    top: 3px;
+    position: relative;
+}
+span.SpriteVoteDownActive::before {
+    content: "";
+    width: 17px;
+    height: 18px;
+    background: url(./images/thumb_down_active.svg);
+    background-size: 17px 18px;
+    background-position: center;
+    font-size: 0 !important;
+    background-repeat: no-repeat;
+    top: 3px;
+    position: relative;
+}
+span.VoiceDivider {
+    padding-left: 1px;
+    padding-right: 1px;
+
+}
+span.line{
+    border-left: 1px solid #D9D9D9;
+    margin: 0px 15px
+}
