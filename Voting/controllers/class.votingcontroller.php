@@ -53,7 +53,7 @@ class VotingController extends DashboardController {
      * @param string $sort
      * @throws Exception
      */
-    public function discussions($page = '', $sort = 'top') {
+    public function discussions($page = '', $sort = 'totalvotes') {
         $this->permission('Garden.Settings.Manage');
 
         // Page setup
@@ -66,19 +66,35 @@ class VotingController extends DashboardController {
         list($offset, $limit) = offsetLimit($page, PagerModule::$DefaultPageSize);
 
         $DiscussionModel = new DiscussionModel();
-        $DiscussionModel->setSort($sort);
+        switch (strtolower($sort)) {
+            case 'totalvotes':
+               // $orderBy = ['d.Score'=> 'desc', 'd.PScore'=>' desc', 'd.NScore'=> 'desc'];
+                $orderBy = 'd.Score';
+                break;
+            case 'votesup':
+                $orderBy = 'd.PScore';
+                break;
+            case 'votesdown':
+                $orderBy = 'd.NScore';
+                break;
+            case 'comments':
+                $orderBy = 'd.CountComments';
+                break;
+            default:
+                $orderBy = 'd.Score';
+        }
 
+        // TODO
+        // , 'd.Score is not null' => ''
         $where = ['Announce' => 'all', 'd.Score is not null' => ''];
         // Get Discussion Count
         $CountDiscussions = $DiscussionModel->getCount($where);
 
         $this->setData('RecordCount', $CountDiscussions);
-        if ($offset >= $CountDiscussions) {
-            $offset = $CountDiscussions - $limit;
-        }
 
         // Get Discussions  and Announcements
-        $discussionData = $DiscussionModel->getWhereRecent($where, $limit, $offset);
+        //$discussionData = $DiscussionModel->getWhereRecent($where, $limit, $offset);
+        $discussionData = $DiscussionModel->getWhere($where, $orderBy, 'desc', $limit, $offset);
         $this->setData('Discussions', $discussionData);
 
         // Deliver json data if necessary
@@ -97,7 +113,7 @@ class VotingController extends DashboardController {
      * @param string $sort
      * @throws Exception
      */
-    public function comments($page = '', $sort = 'top') {
+    public function comments($page = '', $sort = 'totalvotes') {
         $this->permission('Garden.Settings.Manage');
 
         // Page setup
@@ -112,22 +128,24 @@ class VotingController extends DashboardController {
         $CommentModel = new CommentModel();
 
         switch (strtolower($sort)) {
-            case 'top':
-                $CommentModel->OrderBy(array('c.Score desc', 'c.CommentID desc'));
+            case 'totalvotes':
+                $CommentModel->OrderBy(array('c.Score desc', 'c.PScore desc', 'c.NScore desc'));
+                break;
+            case 'votesup':
+                $CommentModel->OrderBy(array('c.PScore desc', 'c.Score desc', 'c.NScore desc'));
+                break;
+            case 'votesdown':
+                $CommentModel->OrderBy(array('c.NScore desc', 'c.Score desc', 'c.PScore desc'));
                 break;
             default:
-                $CommentModel->OrderBy(array('c.Score desc', 'c.CommentID desc'));
+                $CommentModel->OrderBy(array('c.Score desc', 'c.PScore desc', 'c.NScore desc'));
                 break;
         }
 
         $where = ['Score is not null' => ''];
         // Get Comment Count
         $CountComments = $CommentModel->getCount($where);
-
         $this->setData('RecordCount', $CountComments);
-        if ($offset >= $CountComments) {
-            $offset = $CountComments - $limit;
-        }
 
         $data = $CommentModel->getWhere($where,'', '' , $limit, $offset);
         $this->setData('Comments', $data);

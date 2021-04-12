@@ -42,7 +42,8 @@ foreach ($sender->data('Discussions')->result() as $discussion) {
             ?>
         </td>
         <td class="Alt"><?php echo $discussion->Score ?></td>
-        <td class="Alt"><?php echo $discussion->CountViews ?></td>
+        <td class="Alt"><?php echo $discussion->PScore ?></td>
+        <td class="Alt"><?php echo $discussion->NScore ?></td>
         <td class="Alt"><?php echo $discussion->CountComments ?></td>
         <td class="options column-checkbox">
             <?php

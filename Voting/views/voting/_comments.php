@@ -32,6 +32,8 @@ foreach ($sender->data('Comments')->result() as $comment) {
             ?>
         </td>
         <td class="Alt"><?php echo $comment->Score ?></td>
+        <td class="Alt"><?php echo $comment->PScore ?></td>
+        <td class="Alt"><?php echo $comment->NScore ?></td>
         <td class="options column-checkbox">
             <?php
             $attr = ['title' => t('View Post'), 'target'=>'_blank', 'aria-label' => t('View Post'), 'class' => 'btn btn-icon btn-icon-sm'];

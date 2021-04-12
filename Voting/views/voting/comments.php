@@ -19,7 +19,9 @@ $sender = Gdn::controller();
             <thead>
             <tr>
                 <th class="column-lg"><?php echo t('Comment'); ?></th>
-                <th class="column-md"><?php echo t('Votes'); ?></th>
+                <th class="column-md"><?php echo anchor(t('Total Votes'), $this->_OrderCommentsUrl('totalvotes')); ?></th>
+                <th class="column-md"><?php echo anchor(t('Up Votes'), $this->_OrderCommentsUrl('votesup')); ?></th>
+                <th class="column-md"><?php echo anchor(t('Down Votes'), $this->_OrderCommentsUrl('votesdown')); ?></th>
                 <th class="options column-checkbox"></th>
             </tr>
             </thead>
