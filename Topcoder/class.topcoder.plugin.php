@@ -2241,6 +2241,7 @@ if (!function_exists('userAnchor')) {
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['IsTopcoderAdmin'] =$isTopcoderAdmin;
+        Gdn::controller()->EventArguments['HideRoles'] = val('HideRoles', $options, false);
         Gdn::controller()->EventArguments['Text'] =& $text;
         Gdn::controller()->EventArguments['Attributes'] =& $attributes;
         Gdn::controller()->fireEvent('UserAnchor');
