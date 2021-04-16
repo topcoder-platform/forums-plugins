@@ -6,10 +6,12 @@
 }
 .MessageList .ItemDiscussion .Item-Body .Controls a.ReplyViewOptionLink, .ReplyViewOptions .ReplyViewOptionLink {
     color: #137d60;
+    font-weight:500;
 }
 
 .MessageList .ItemDiscussion .Item-Body .Controls a.ReplyViewOptionLink.Active, .ReplyViewOptions .ReplyViewOptionLink.Active {
     color: #555555;
+    font-weight:500;
 }
 /* 
    Indent comments according to their depth. 
