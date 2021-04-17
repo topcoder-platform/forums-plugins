@@ -38,7 +38,12 @@ class VotingPlugin extends Gdn_Plugin {
             $currentUserVote = $commentModel->GetUserScore($id, $session->UserID);
         }
 
-        echo generateVoterBox($id,$args['Type'], $pScore, $nScore,  $currentUserVote ).'<span class="line"></span>';
+        $control = generateVoterBox($id,$args['Type'], $pScore, $nScore,  $currentUserVote );
+
+        if ($session->IsValid()) {
+            $control .='<span class="line"></span>';
+        }
+        echo $control;
 
     }
 
@@ -366,13 +371,23 @@ if (!function_exists('generateVoterBox')) {
         }
 
         $result = '<span id="' . $voterBoxID . '" class="Voter">';
-        $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteUp, 'rel' => 'nofollow')), $voteUpUrl, 'VoteUp');
+        // The up/down vote buttons are clickable in guest mode
+        if(Gdn::session()->isValid()) {
+            $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteUp, 'rel' => 'nofollow')), $voteUpUrl, 'VoteUp');
+        } else {
+            $result .= Wrap(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteUp, 'rel' => 'nofollow')), 'span', array('class' =>'VoteUp'));
+        }
+
         $counts = formattedPScore($pScore);
         if(!StringIsNullOrEmpty($nScore) && $nScore != 0) {
             $counts .= '<span class="VoiceDivider">/</span>' . formattedNScore($nScore);
         }
         $result .= Wrap($counts, 'span', array('class' => 'CountVoices'));
-        $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteDown, 'rel' => 'nofollow')), $voteDownUrl, 'VoteDown');
+        if(Gdn::session()->isValid()) {
+            $result .= Anchor(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteDown, 'rel' => 'nofollow')), $voteDownUrl, 'VoteDown');
+        } else {
+            $result .= Wrap(Wrap('', 'span', array('class' => 'icon ' . $cssClassVoteDown, 'rel' => 'nofollow')), 'span', array('class' =>'VoteDown'));
+        }
         $result .= '</span>';
 
         return $result;
