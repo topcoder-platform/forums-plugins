@@ -1,0 +1,22 @@
+{
+  "key": "Voting",
+  "name": "Voting",
+  "description": "This plugin allows users to vote for comments and discussions.",
+  "version": "1.0.0",
+  "documentationUrl": "http://discussions.topcoder.com",
+  "type": "addon",
+  "priority": "100",
+  "icon": "topcoder-logo.jpeg",
+  "mobileFriendly": true,
+  "hasLocale": false,
+  "authors": [
+    {
+      "name": "Topcoder",
+      "email": "support@topcoder.com",
+      "homepage": "https://topcoder.com"
+    }
+  ],
+  "require": {
+    "vanilla": ">=3.0"
+  }
+}

@@ -35,6 +35,10 @@ class TopcoderPlugin extends Gdn_Plugin {
     const  CACHE_TOPCODER_KEY_TOPCODER_ROLE_RESOURCES = 'topcoder.roleresources';
     const  CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE_RESOURCES = 'topcoder.challenge.{ChallengeID}.resources';
 
+    const  CACHE_DEFAULT_EXPIRY_TIME = 60*60*3; //The default expiration time in Memcached is in seconds, 10800 = 3 hours
+    const  CACHE_TOPCODER_PROFILE_EXPIRY_TIME = 60*60*24*7; // 1 week
+    const  CACHE_ONE_DAY_EXPIRY_TIME = 60*60*24; // 1 day
+
     const ROLE_TYPE_TOPCODER = 'topcoder';
     const ROLE_TOPCODER_CONNECT_ADMIN = 'Connect Admin';
     const ROLE_TOPCODER_ADMINISTRATOR = 'administrator';
@@ -679,6 +683,21 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         self::log('base_afterSignIn_handler', ['Session Permissions' => Gdn::session()->getPermissionsArray()]);
 
+        if(Gdn_Cache::activeEnabled()) {
+            $currentUser = Gdn::session()->User;
+            $lastVisit = val('DateLastActive', $currentUser, false);
+            if ($lastVisit) {
+                $seconds = now() - Gdn_Format::toTimestamp($lastVisit);
+                if ($seconds > self::CACHE_ONE_DAY_EXPIRY_TIME) { // Update the current User once a day
+                    // remove from Topcoder cache by UserID and Topcoder handle
+                    self::removeTopcoderUserFromCache($currentUser->UserID);
+                    self::removeUserFromTopcoderCache($currentUser->Name);
+                    // update cache
+                    self::getTopcoderUserFromTopcoderCache($currentUser->Name);
+                    self::getTopcoderUserFromCache($currentUser->UserID);
+                }
+            }
+        }
     }
 
     /**
@@ -1362,7 +1381,7 @@ class TopcoderPlugin extends Gdn_Plugin {
     private static function topcoderRoleResourcesCache($roleResources) {
         return Gdn::cache()->store(self::CACHE_TOPCODER_KEY_TOPCODER_ROLE_RESOURCES,
                 $roleResources, [
-                Gdn_Cache::FEATURE_EXPIRY => 3600
+                Gdn_Cache::FEATURE_EXPIRY => self::CACHE_ONE_DAY_EXPIRY_TIME
             ]);
     }
 
@@ -1426,9 +1445,20 @@ class TopcoderPlugin extends Gdn_Plugin {
             return $challengeResources;
         }
 
+        $expirationTime = self::CACHE_DEFAULT_EXPIRY_TIME;
+        $challenge = self::loadChallenge($challengeId);
+        if($challenge && count($challenge) > 0) {
+            // Set expiration time for  Challenge roles
+            $endDate = strtotime($challenge[0]->endDate);
+            $startDate = strtotime($challenge[0]->startDate);
+            // $duration = $endDate > -1 && $startDate > -1 ? $endDate - $startDate: 0;
+            // archived
+            $isEnded = $endDate > -1 && now() - $endDate > 0;
+            $expirationTime  = $isEnded ? self::CACHE_DEFAULT_EXPIRY_TIME: self::CACHE_ONE_DAY_EXPIRY_TIME;
+        }
         $challengeResources = self::loadChallengeResources($challengeId);
         if(Gdn_Cache::activeEnabled() && $challengeResources) {
-            self::topcoderChallengeResourcesCache( $challengeId, $challengeResources);
+            self::topcoderChallengeResourcesCache( $challengeId, $challengeResources, $expirationTime);
         }
         return $challengeResources;
     }
@@ -1454,10 +1484,10 @@ class TopcoderPlugin extends Gdn_Plugin {
         return $challengeResources;
     }
 
-    private static function topcoderChallengeResourcesCache($challengeID, $challengeResources) {
+    private static function topcoderChallengeResourcesCache($challengeID, $challengeResources, $expirationTime = self::CACHE_DEFAULT_EXPIRY_TIME) {
         $challengeKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE_RESOURCES, ['ChallengeID' => $challengeID]);
         return Gdn::cache()->store($challengeKey , $challengeResources, [
-                Gdn_Cache::FEATURE_EXPIRY => 3600
+                Gdn_Cache::FEATURE_EXPIRY => $expirationTime
             ]);
     }
 
@@ -1487,6 +1517,35 @@ class TopcoderPlugin extends Gdn_Plugin {
             return json_decode($resourceData);
         }
         self::log('Couldn\'t get challenge resources: no token', []);
+        return null;
+    }
+
+    /**
+     * Load Topcoder Challenge by Challenge ID
+     * @param $challengeId
+     * @return mixed|null
+     */
+    private static function loadChallenge($challengeId) {
+        $token = TopcoderPlugin::getM2MToken();
+        if ($token) {
+            $challengeURI = c('Plugins.Topcoder.ChallengeApiURI', '/v5/challenges/');
+            $topcoderChallengeApiUrl = c('Plugins.Topcoder.BaseApiURL') . $challengeURI;
+            $options = array('http' => array(
+                'method' => 'GET',
+                'header' => 'Authorization: Bearer ' .$token
+            ));
+            $context = stream_context_create($options);
+            $data = file_get_contents($topcoderChallengeApiUrl . '?challengeId=' . $challengeId, false, $context);
+            if ($data === false) {
+                // Handle errors (e.g. 404 and others)
+                self::log('Couldn\'t get challenge: no token', ['headers'=> json_encode($http_response_header)]);
+                logMessage(__FILE__, __LINE__, 'TopcoderPlugin', 'loadChallenge', "Couldn't load Topcoder challenge".json_encode($http_response_header));
+                return null;
+            }
+
+            return json_decode($data);
+        }
+        self::log('Couldn\'t load challenge: no token', []);
         return null;
     }
 
@@ -1795,7 +1854,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $userID = val('UserID', $userFields);
         $userKey = formatString(self::CACHE_KEY_TOPCODER_PROFILE, ['UserID' => $userID]);
         $cached = $cached & Gdn::cache()->store($userKey, $userFields, [
-                Gdn_Cache::FEATURE_EXPIRY => 3600
+                Gdn_Cache::FEATURE_EXPIRY => self::CACHE_TOPCODER_PROFILE_EXPIRY_TIME
             ]);
         return $cached;
     }
@@ -1826,7 +1885,26 @@ class TopcoderPlugin extends Gdn_Plugin {
         return $topcoderUser;
     }
 
+    private static function removeTopcoderUserFromCache($userID) {
+        if(!Gdn_Cache::activeEnabled()) {
+            return false;
+        }
+
+        $handleKey = formatString(self::CACHE_KEY_TOPCODER_PROFILE, ['UserID' => $userID]);
+         return Gdn::cache()->remove($handleKey);
+    }
+
     // This cache includes Topcoder which might not exist in Vanilla
+    private static function removeUserFromTopcoderCache($topcoderHandle) {
+        if (!Gdn_Cache::activeEnabled()) {
+            return false;
+        }
+
+        $handleKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_PROFILE, ['Handle' => $topcoderHandle]);
+         return Gdn::cache()->remove($handleKey);
+    }
+
+        // This cache includes Topcoder which might not exist in Vanilla
     private static function getTopcoderUserFromTopcoderCache($topcoderHandle) {
         if(!Gdn_Cache::activeEnabled()) {
             return false;
@@ -1887,7 +1965,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $handle = val('Handle', $userFields);
         $userKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_PROFILE, ['Handle' => $handle]);
         $cached = $cached & Gdn::cache()->store($userKey, $userFields, [
-                Gdn_Cache::FEATURE_EXPIRY => 3600
+                Gdn_Cache::FEATURE_EXPIRY => self::CACHE_TOPCODER_PROFILE_EXPIRY_TIME
             ]);
         return $cached;
     }
@@ -2163,6 +2241,7 @@ if (!function_exists('userAnchor')) {
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['IsTopcoderAdmin'] =$isTopcoderAdmin;
+        Gdn::controller()->EventArguments['HideRoles'] = val('HideRoles', $options, false);
         Gdn::controller()->EventArguments['Text'] =& $text;
         Gdn::controller()->EventArguments['Attributes'] =& $attributes;
         Gdn::controller()->fireEvent('UserAnchor');
