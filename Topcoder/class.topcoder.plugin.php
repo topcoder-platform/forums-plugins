@@ -1846,7 +1846,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             // }
             self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'currentUser' => $currentProjectRoles,
                 'Topcoder Resources' => $resources , 'Topcoder RoleResources'
-                => $roleResources, $challenge =>$challenge]);
+                => $roleResources, 'challenge' =>$challenge]);
         }
     }
 
