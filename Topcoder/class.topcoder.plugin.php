@@ -33,6 +33,7 @@ class TopcoderPlugin extends Gdn_Plugin {
     const  CACHE_KEY_TOPCODER_PROFILE = 'topcoder.{UserID}';
     const  CACHE_TOPCODER_KEY_TOPCODER_PROFILE = 'topcoder.{Handle}';
     const  CACHE_TOPCODER_KEY_TOPCODER_ROLE_RESOURCES = 'topcoder.roleresources';
+    const  CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE = 'topcoder.challenge.{ChallengeID}';
     const  CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE_RESOURCES = 'topcoder.challenge.{ChallengeID}.resources';
 
     const  CACHE_DEFAULT_EXPIRY_TIME = 60*60*3; //The default expiration time in Memcached is in seconds, 10800 = 3 hours
@@ -1446,11 +1447,11 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
 
         $expirationTime = self::CACHE_DEFAULT_EXPIRY_TIME;
-        $challenge = self::loadChallenge($challengeId);
-        if($challenge && count($challenge) > 0) {
+        $challenge = self::getChallenge($challengeId);
+        if($challenge) {
             // Set expiration time for  Challenge roles
-            $endDate = strtotime($challenge[0]->endDate);
-            $startDate = strtotime($challenge[0]->startDate);
+            $endDate = $challenge['EndDate'];
+            $startDate =$challenge['StartDate'];
             // $duration = $endDate > -1 && $startDate > -1 ? $endDate - $startDate: 0;
             // archived
             $isEnded = $endDate > -1 && now() - $endDate > 0;
@@ -1521,6 +1522,43 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Get Topcoder Challenge by ChallengeId
+     * @param $challengeId
+     * @return mixed|null
+     */
+    public function getChallenge($challengeId) {
+        $challenge = self::getChallengeFromCache($challengeId);
+        if ($challenge) {
+            return $challenge;
+        }
+
+       $cachedChallenge = ['ChallengeID' => $challengeId];
+       $challenge = self::loadChallenge($challengeId);
+
+        $expirationTime = self::CACHE_DEFAULT_EXPIRY_TIME;
+        if($challenge) {
+            // Set expiration time for  Challenge roles
+            $startDate = strtotime($challenge->startDate);
+            $endDate = strtotime($challenge->endDate);
+            // archived
+            $isEnded = $endDate > -1 && now() - $endDate > 0;
+            if(!$isEnded) {
+                $expirationTime = self::CACHE_ONE_DAY_EXPIRY_TIME;
+            }
+            $cachedChallenge['StartDate'] = $startDate;
+            $cachedChallenge['EndDate'] = $endDate;
+            $termIDs = array_column($challenge->terms, 'id');
+            $NDA_UUID = c('Plugins.Topcoder.NDA_UUID');
+            $cachedChallenge['IsNDA'] = in_array($NDA_UUID, $termIDs);
+        }
+        if (Gdn_Cache::activeEnabled()) {
+            self::topcoderChallengeCache($challengeId, $cachedChallenge, $expirationTime);
+        }
+        return $cachedChallenge;
+    }
+
+
+    /**
      * Load Topcoder Challenge by Challenge ID
      * @param $challengeId
      * @return mixed|null
@@ -1535,7 +1573,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 'header' => 'Authorization: Bearer ' .$token
             ));
             $context = stream_context_create($options);
-            $data = file_get_contents($topcoderChallengeApiUrl . '?challengeId=' . $challengeId, false, $context);
+            $data = file_get_contents($topcoderChallengeApiUrl . $challengeId, false, $context);
             if ($data === false) {
                 // Handle errors (e.g. 404 and others)
                 self::log('Couldn\'t get challenge: no token', ['headers'=> json_encode($http_response_header)]);
@@ -1548,6 +1586,35 @@ class TopcoderPlugin extends Gdn_Plugin {
         self::log('Couldn\'t load challenge: no token', []);
         return null;
     }
+
+    /**
+     * Load challenge from cache
+     * @param $challengeID
+     * @return false|mixed
+     */
+    private static function getChallengeFromCache($challengeID) {
+        if(!Gdn_Cache::activeEnabled()) {
+            return false;
+        }
+
+        $handleKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE, ['ChallengeID' => $challengeID]);
+        if(!Gdn::cache()->exists($handleKey)) {
+            return false;
+        }
+        $challenge = Gdn::cache()->get($handleKey);
+        if ($challenge === Gdn_Cache::CACHEOP_FAILURE) {
+            return false;
+        }
+        return $challenge;
+    }
+
+    private static function topcoderChallengeCache($challengeID, $challenge, $expirationTime = self::CACHE_DEFAULT_EXPIRY_TIME) {
+        $challengeKey = formatString(self::CACHE_TOPCODER_KEY_TOPCODER_CHALLENGE, ['ChallengeID' => $challengeID]);
+        return Gdn::cache()->store($challengeKey , $challenge, [
+            Gdn_Cache::FEATURE_EXPIRY => $expirationTime
+        ]);
+    }
+
 
     /**
      * Get a Topcoder Roles
@@ -1761,6 +1828,7 @@ class TopcoderPlugin extends Gdn_Plugin {
     // Set Topcoder Project Roles Data for a challenge
     private function setTopcoderProjectData($sender, $challengeID) {
         if($challengeID) {
+            $challenge = $this->getChallenge($challengeID);
             $resources = $this->getChallengeResources($challengeID);
             $roleResources = $this->getRoleResources();
             $currentProjectRoles = $this->getTopcoderProjectRoles(Gdn::session()->User, $resources, $roleResources);
@@ -1768,6 +1836,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $currentProjectRoles =  array_map('strtolower',$currentProjectRoles);
             }
 
+            $sender->Data['Challenge'] = $challenge;
             $sender->Data['ChallengeResources'] = $resources;
             $sender->Data['ChallengeRoleResources'] = $roleResources;
             $sender->Data['ChallengeCurrentUserProjectRoles'] = $currentProjectRoles;
@@ -1777,7 +1846,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             // }
             self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'currentUser' => $currentProjectRoles,
                 'Topcoder Resources' => $resources , 'Topcoder RoleResources'
-                => $roleResources,]);
+                => $roleResources, 'challenge' =>$challenge]);
         }
     }
 
@@ -2483,3 +2552,50 @@ if (!function_exists('topcoderMentionAnchor')) {
     }
 }
 
+if (!function_exists('watchingSorts')) {
+    /**
+     * Returns watching sorting.
+     *
+     * @param string $extraClasses any extra classes you add to the drop down
+     * @return string
+     */
+    function watchingSorts($extraClasses = '') {
+        if (!Gdn::session()->isValid()) {
+            return;
+        }
+
+        $baseUrl = preg_replace('/\?.*/', '',  Gdn::request()->getFullPath());
+        $transientKey = Gdn::session()->transientKey();
+        $filters = [
+            [
+                'name' => t('New'),
+                'param' => 'sort',
+                'value' => 'new',
+                'extra' => ['TransientKey' => $transientKey, 'save' => 1]
+            ],
+
+            [
+                'name' => t('Old'),
+                'param' => 'sort',
+                'value' => 'old',
+                'extra' => ['TransientKey' => $transientKey, 'save' => 1]
+            ]
+        ];
+
+        $defaultParams = [];
+        if (!empty($defaultParams)) {
+            $defaultUrl = $baseUrl.'?'.http_build_query($defaultParams);
+        } else {
+            $defaultUrl = $baseUrl;
+        }
+
+        return sortsDropDown('WatchingSort',
+            $baseUrl,
+            $filters,
+            $extraClasses,
+            null,
+            $defaultUrl,
+            'Sort'
+        );
+    }
+}
