@@ -2552,3 +2552,50 @@ if (!function_exists('topcoderMentionAnchor')) {
     }
 }
 
+if (!function_exists('watchingSorts')) {
+    /**
+     * Returns watching sorting.
+     *
+     * @param string $extraClasses any extra classes you add to the drop down
+     * @return string
+     */
+    function watchingSorts($extraClasses = '') {
+        if (!Gdn::session()->isValid()) {
+            return;
+        }
+
+        $baseUrl = preg_replace('/\?.*/', '',  Gdn::request()->getFullPath());
+        $transientKey = Gdn::session()->transientKey();
+        $filters = [
+            [
+                'name' => t('New'),
+                'param' => 'sort',
+                'value' => 'new',
+                'extra' => ['TransientKey' => $transientKey, 'save' => 1]
+            ],
+
+            [
+                'name' => t('Old'),
+                'param' => 'sort',
+                'value' => 'old',
+                'extra' => ['TransientKey' => $transientKey, 'save' => 1]
+            ]
+        ];
+
+        $defaultParams = [];
+        if (!empty($defaultParams)) {
+            $defaultUrl = $baseUrl.'?'.http_build_query($defaultParams);
+        } else {
+            $defaultUrl = $baseUrl;
+        }
+
+        return sortsDropDown('WatchingSort',
+            $baseUrl,
+            $filters,
+            $extraClasses,
+            null,
+            $defaultUrl,
+            'Sort'
+        );
+    }
+}
