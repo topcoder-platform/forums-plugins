@@ -867,6 +867,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         ]);
 
         $groupID = false;
+        $categoryModel = new CategoryModel();
         if($args['Controller'] instanceof DiscussionController) {
             if(array_key_exists('discussionid', $methodArgs)) {
                 $discussionID = $methodArgs['discussionid'];
@@ -888,7 +889,6 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $discussionModel = new DiscussionModel();
                 $discussion = $discussionModel->getID($discussionID);
                 if($discussion->CategoryID){
-                    $categoryModel = new CategoryModel();
                     $category = $categoryModel->getID($discussion->CategoryID);
                     $groupID = $category->GroupID;
                 }
@@ -899,9 +899,16 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $discussionModel = new DiscussionModel();
                 $discussion = $discussionModel->getID($comment->DiscussionID);
                 if($discussion->CategoryID){
-                    $categoryModel = new CategoryModel();
                     $category = $categoryModel->getID($discussion->CategoryID);
                     $groupID = $category->GroupID;
+                }
+            }
+        } else if($args['Controller'] instanceof  CategoriesController) {
+            if (array_key_exists('categoryidentifier', $methodArgs)) {
+                $categoryUrlCode = $methodArgs['categoryidentifier'];
+                if($categoryUrlCode) {
+                    $category = $categoryModel->getByCode($categoryUrlCode);
+                    $groupID = val('GroupID', $category);
                 }
             }
         }
@@ -909,6 +916,11 @@ class TopcoderPlugin extends Gdn_Plugin {
         if($groupID && $groupID > 0) {
             $groupModel = new GroupModel();
             $group = $groupModel->getByGroupID($groupID);
+            $category = $categoryModel->getByCode($group->ChallengeID);
+            $categoryID= val('CategoryID', $category);
+            Gdn::controller()->setData('Breadcrumbs.Options.GroupCategoryID',  $categoryID);
+            Gdn::controller()->setData('Breadcrumbs.Options.GroupID', $groupID);
+            Gdn::controller()->setData('Breadcrumbs.Options.ChallengeID', $group->ChallengeID);
             if ($group->ChallengeID) {
                 $this->setTopcoderProjectData($args['Controller'], $group->ChallengeID);
             }
@@ -1547,6 +1559,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             }
             $cachedChallenge['StartDate'] = $startDate;
             $cachedChallenge['EndDate'] = $endDate;
+            $cachedChallenge['Track'] = $challenge->track;
             $termIDs = array_column($challenge->terms, 'id');
             $NDA_UUID = c('Plugins.Topcoder.NDA_UUID');
             $cachedChallenge['IsNDA'] = in_array($NDA_UUID, $termIDs);
