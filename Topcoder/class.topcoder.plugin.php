@@ -2066,6 +2066,62 @@ class TopcoderPlugin extends Gdn_Plugin {
             );
         }
     }
+
+    // MAGIC EVENTS TO OVERRIDE VANILLA CONTROLLER METHODS
+
+    /**
+     * Allows user to announce or unannounce a discussion.
+     * FIX: https://github.com/topcoder-platform/forums/issues/456
+     * @param int $discussionID Unique discussion ID.
+     * @param string $TransientKey Single-use hash to prove intent.
+     */
+    public function discussionController_announce_create($sender,  $discussionID = '', $announce=true  ,$target = '') {
+        // Make sure we are posting back.
+        if (!$sender->Request->isAuthenticatedPostBack()) {
+            throw permissionException('Javascript');
+        }
+
+        $discussion = $sender->DiscussionModel->getID($discussionID);
+        if (!$discussion) {
+            throw notFoundException('Discussion');
+        }
+
+        //$sender->categoryPermission($discussion->CategoryID, 'Vanilla.Discussions.Announce');// protected
+        if (!CategoryModel::checkPermission($discussion->CategoryID, 'Vanilla.Discussions.Announce')) {
+            $sender->permission('Vanilla.Discussions.Announce', true, 'Category', $discussion->CategoryID);
+        }
+
+        // Save the property.
+        // 0 - Don't Announce Discussion
+        // 2 - Announce Discussion in the current category
+        $newAnnounceValue = (bool)$announce? 2 : 0;
+        $sender->DiscussionModel->setField($discussionID, 'Announce', $newAnnounceValue);
+        $discussion->Announce = $newAnnounceValue;
+
+        // Redirect to the front page
+        if ($sender->_DeliveryType === DELIVERY_TYPE_ALL) {
+            $target = getIncomingValue('Target', 'discussions');
+            redirectTo($target);
+        }
+
+        $sender->sendOptions($discussion);
+       if ($newAnnounceValue == 2) {
+            require_once $sender->fetchViewLocation('helper_functions', 'Discussions', 'vanilla');
+            $dataHtml = tag($discussion, 'Announce', 'Announcement');
+            // Remove if exists
+            $sender->jsonTarget(".Section-DiscussionList #Discussion_$discussionID .Meta-Discussion", $dataHtml , 'Prepend');
+            $sender->jsonTarget(".Section-DiscussionList #Discussion_$discussionID", 'Announcement', 'AddClass');
+        } else {
+           $sender->jsonTarget(".Section-DiscussionList #Discussion_$discussionID .Tag-Announcement", null, 'Remove');
+           $sender->jsonTarget(".Section-DiscussionList #Discussion_$discussionID", 'Announcement', 'RemoveClass');
+
+       }
+
+        $sender->jsonTarget("#Discussion_$discussionID", null, 'Highlight');
+        $sender->jsonTarget(".Discussion #Item_0", null, 'Highlight');
+
+        $sender->render('Blank', 'Utility', 'Dashboard');
+    }
 }
 
 if(!function_exists('topcoderRatingCssClass')) {
