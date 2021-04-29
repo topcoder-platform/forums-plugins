@@ -28,6 +28,7 @@ class PermissionApiController extends AbstractApiController {
         $userPermissions = Gdn::userModel()->getPermissions($userID);
         $data = [
             'userPermissions' => $userPermissions,
+            'userPermissionArray' => $userPermissions->getPermissions()
         ];
         return $data;
     }
