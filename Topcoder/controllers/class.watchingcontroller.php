@@ -56,10 +56,10 @@ class WatchingController extends VanillaController {
         $sort = Gdn::request()->get('sort', null);
         $saveSorting = $sort !== null && Gdn::request()->get('save') && Gdn::session()->validateTransientKey(Gdn::request()->get('TransientKey', ''));
         if($saveSorting) {
-            Gdn::session()->setPreference('CategorySort', $sort);
+            Gdn::session()->setPreference('WatchingSort', $sort);
         }
-        $sort =  Gdn::session()->getPreference('CategorySort', false);
-        $this->setData('CategorySort', $sort);
+        $sort =  Gdn::session()->getPreference('WatchingSort', false);
+        $this->setData('WatchingSort', $sort);
 
         $userMetaModel = new UserMetaModel();
         list($cp, $categoryLimit) = offsetLimit($cp, 30);
