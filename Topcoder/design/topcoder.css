@@ -59,7 +59,7 @@ a.coderRatingRed:hover, a.coderRatingYellow:hover, a.coderRatingBlue:hover, a.co
 /* Gray */
 .coderRatingGrey, .coderRatingGrey:link, .coderRatingGrey:visited, .coderRatingGrey:hover, .coderRatingGrey:active { color: #999999 !important; }
 /* Purple, no rating */
-.coderRatingNone, .coderRatingNone:link, .coderRatingNone:visited, .coderRatingNone:hover, .coderRatingNone:active { color:  #000000; !important; }
+.coderRatingNone, .coderRatingNone:link, .coderRatingNone:visited, .coderRatingNone:hover, .coderRatingNone:active { color:  #000000 !important; }
 
 /* Topcoder Admin */
 .topcoderAdmin, .topcoderAdmin:link, .topcoderAdmin:visited, .topcoderAdmin:hover, .topcoderAdmin:active { color: #ff9900 !important;  }

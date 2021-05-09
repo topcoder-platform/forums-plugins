@@ -292,26 +292,40 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
 
        self::log('TopcoderPlugin: gdn_auth_startAuthenticator_handler', ['Path' => Gdn::request()->path()]);
-
-        // Ignore EntryController endpoints and ApiController endpoints.
+        // Ignore EntryController endpoints
         // AccessToken for /api will be checked in class.hooks.php
-        if (stringBeginsWith(Gdn::request()->getPath(), '/api/') || stringBeginsWith(Gdn::request()->getPath(), '/entry/')) {
+        if (stringBeginsWith(Gdn::request()->getPath(), '/entry/')) {
             return;
         }
 
         $cookieName = c('Plugins.Topcoder.SSO.CookieName');
-       self::log('Cookie Name', ['value' => $cookieName]);
+        self::log('Cookie Name', ['value' => $cookieName]);
 
         $cookiesToken = isset($_COOKIE[$cookieName]) ? $_COOKIE[$cookieName] : null;
-
         $headersToken = $this->getBearerToken();
-        $accessToken = $headersToken ? $headersToken : $cookiesToken;
 
         if ($cookiesToken) {
-           self::log('Token from Cookies', ['value' => $cookiesToken]);
+            self::log('Token from Cookies', ['value' => $cookiesToken]);
         }
         if ($headersToken) {
-           self::log('Token from Headers', ['value' => '' . $headersToken]);
+            self::log('Token from Headers', ['value' => '' . $headersToken]);
+        }
+
+        $accessToken = null;
+
+        if(stringBeginsWith(Gdn::request()->getPath(), '/api/')) {
+            if(stringBeginsWith(Gdn::request()->getPath(), '/api/v2/users/me-preferences') ||
+            stringBeginsWith(Gdn::request()->getPath(), '/api/v2/discussions/bookmarked') ||
+            (stringBeginsWith(Gdn::request()->getPath(), '/api/v2/discussions/')
+                && stringEndsWith(Gdn::request()->getPath(), '/bookmark'))) {
+                $accessToken = $headersToken;
+            } else {
+                // Ignore other ApiController endpoints.
+                // AccessToken for /api will be checked in class.hooks.php
+              return;
+            }
+        } else {
+            $accessToken = $cookiesToken;
         }
 
         if ($accessToken) {
@@ -2121,6 +2135,163 @@ class TopcoderPlugin extends Gdn_Plugin {
         $sender->jsonTarget(".Discussion #Item_0", null, 'Highlight');
 
         $sender->render('Blank', 'Utility', 'Dashboard');
+    }
+
+    /**
+     * Edit user's preferences (mostly notification settings).
+     *
+     * @param mixed $userReference Unique identifier, possibly username or ID.
+     * @param string $username .
+     * @param int $userID Unique identifier.
+     */
+    public function profileController_preferences_create($sender, $userReference = '', $username = '', $userID = '') {
+        $sender->addJsFile('profile.js');
+        $session = Gdn::session();
+        $sender->permission('Garden.SignIn.Allow');
+
+        // Get user data
+        $sender->getUserInfo($userReference, $username, $userID, true);
+        $userPrefs = dbdecode($sender->User->Preferences);
+        if ($sender->User->UserID != $session->UserID) {
+            $sender->permission(['Garden.Users.Edit', 'Moderation.Profiles.Edit'], false);
+        }
+
+        if (!is_array($userPrefs)) {
+            $userPrefs = [];
+        }
+
+        $metaPrefs = [];// UserModel::getMeta($this->User->UserID, 'Preferences.%', 'Preferences.');
+
+        // Define the preferences to be managed
+        $notifications = [];
+
+        if (c('Garden.Profile.ShowActivities', true)) {
+            $notifications = [
+                'Email.WallComment' => t('Notify me when people write on my wall.'),
+                'Email.ActivityComment' => t('Notify me when people reply to my wall comments.'),
+                'Popup.WallComment' => t('Notify me when people write on my wall.'),
+                'Popup.ActivityComment' => t('Notify me when people reply to my wall comments.')
+            ];
+        }
+
+        $sender->Preferences = ['Notifications' => $notifications];
+
+        // Allow email notification of applicants (if they have permission & are using approval registration)
+        if (checkPermission('Garden.Users.Approve') && c('Garden.Registration.Method') == 'Approval') {
+            $sender->Preferences['Notifications']['Email.Applicant'] = [t('NotifyApplicant', 'Notify me when anyone applies for membership.'), 'Meta'];
+        }
+
+        $sender->fireEvent('AfterPreferencesDefined');
+
+        // Loop through the preferences looking for duplicates, and merge into a single row
+        $sender->PreferenceGroups = [];
+        $sender->PreferenceTypes = [];
+        foreach ($sender->Preferences as $preferenceGroup => $preferences) {
+            $sender->PreferenceGroups[$preferenceGroup] = [];
+            $sender->PreferenceTypes[$preferenceGroup] = [];
+            foreach ($preferences as $name => $description) {
+                $location = 'Prefs';
+                if (is_array($description)) {
+                    list($description, $location) = $description;
+                }
+
+                $nameParts = explode('.', $name);
+                $prefType = val('0', $nameParts);
+                $subName = val('1', $nameParts);
+                if ($subName != false) {
+                    // Save an array of all the different types for this group
+                    if (!in_array($prefType, $sender->PreferenceTypes[$preferenceGroup])) {
+                        $sender->PreferenceTypes[$preferenceGroup][] = $prefType;
+                    }
+
+                    // Store all the different subnames for the group
+                    if (!array_key_exists($subName, $sender->PreferenceGroups[$preferenceGroup])) {
+                        $sender->PreferenceGroups[$preferenceGroup][$subName] = [$name];
+                    } else {
+                        $sender->PreferenceGroups[$preferenceGroup][$subName][] = $name;
+                    }
+                } else {
+                    $sender->PreferenceGroups[$preferenceGroup][$name] = [$name];
+                }
+            }
+        }
+
+        // Loop the preferences, setting defaults from the configuration.
+        $currentPrefs = [];
+        foreach ($sender->Preferences as $prefGroup => $prefs) {
+            foreach ($prefs as $pref => $desc) {
+                $location = 'Prefs';
+                if (is_array($desc)) {
+                    list($desc, $location) = $desc;
+                }
+
+                if ($location == 'Meta') {
+                    $currentPrefs[$pref] = val($pref, $metaPrefs, false);
+                } else {
+                    $currentPrefs[$pref] = val($pref, $userPrefs, c('Preferences.'.$pref, '0'));
+                }
+
+                unset($metaPrefs[$pref]);
+            }
+        }
+        $currentPrefs = array_merge($currentPrefs, $metaPrefs);
+        $currentPrefs = array_map('intval', $currentPrefs);
+        $sender->setData('Preferences', $currentPrefs);
+
+        if (UserModel::noEmail()) {
+            $sender->PreferenceGroups = self::_removeEmailPreferences($sender->PreferenceGroups);
+            $sender->PreferenceTypes = self::_removeEmailPreferences($sender->PreferenceTypes);
+            $sender->setData('NoEmail', true);
+        }
+
+        $sender->setData('PreferenceGroups', $sender->PreferenceGroups);
+        $sender->setData('PreferenceTypes', $sender->PreferenceTypes);
+        $sender->setData('PreferenceList', $sender->Preferences);
+
+        if ($sender->Form->authenticatedPostBack()) {
+            // Get, assign, and save the preferences.
+            $newMetaPrefs = [];
+            foreach ($sender->Preferences as $prefGroup => $prefs) {
+                foreach ($prefs as $pref => $desc) {
+                    $location = 'Prefs';
+                    if (is_array($desc)) {
+                        list($desc, $location) = $desc;
+                    }
+
+                    $value = $sender->Form->getValue($pref, null);
+                    if (is_null($value)) {
+                        continue;
+                    }
+
+                    if ($location == 'Meta') {
+                      // $newMetaPrefs[$pref] = $value ? $value : null;
+                      // if ($value) {
+                      //    $userPrefs[$pref] = $value; // dup for notifications code.
+                       // }
+                    } else {
+                        if (!$currentPrefs[$pref] && !$value) {
+                           unset($userPrefs[$pref]); // save some space
+                        } else {
+                           $userPrefs[$pref] = $value;
+                        }
+                    }
+                }
+            }
+
+            $sender->UserModel->savePreference($sender->User->UserID, $userPrefs);
+            // UserModel::setMeta($this->User->UserID, $newMetaPrefs, 'Preferences.');
+            $sender->setData('Preferences', array_merge($sender->data('Preferences', []), $userPrefs, $newMetaPrefs));
+
+            if (count($sender->Form->errors() == 0)) {
+                $sender->informMessage(sprite('Check', 'InformSprite').t('Your preferences have been saved.'), 'Dismissable AutoDismiss HasSprite');
+            }
+        } else {
+            $sender->Form->setData($currentPrefs);
+        }
+
+        $sender->title(t('Notification Preferences'));
+        $sender->_setBreadcrumbs($sender->data('Title'), $sender->canonicalUrl());
+        $sender->render();
     }
 }
 
