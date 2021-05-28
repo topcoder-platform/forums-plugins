@@ -151,11 +151,11 @@ else:
 
     echo '<div class="SignInLinks">';
 
-    echo anchor(t('Login'), signInUrl($this->_Sender->SelfUrl), (signInPopup() ? ' SignInPopup' : ''), ['rel' => 'nofollow']);
-    // $Url = registerUrl($this->_Sender->SelfUrl);
-    // if (!empty($Url)) {
-       // echo bullet(' ').anchor(t('Register'), $Url, 'ApplyButton', ['rel' => 'nofollow']).' ';
-    // }
+    echo anchor(t('Log in'), signInUrl($this->_Sender->SelfUrl), (signInPopup() ? ' SignInPopup' : 'SignIn'), ['rel' => 'nofollow']);
+    $Url = registerUrl($this->_Sender->SelfUrl);
+    if (!empty($Url)) {
+       echo anchor(t('Sign Up'), $Url, 'SignUp', ['rel' => 'nofollow']).' ';
+    }
     echo '</div>';
 
     echo ' <div class="SignInIcons">';
