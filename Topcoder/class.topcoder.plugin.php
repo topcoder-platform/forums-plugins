@@ -187,10 +187,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cf->form()->validateRule('Plugins.Topcoder.RoleApiURI', 'ValidateRequired', t('You must provide Role API URI.'));
             $cf->form()->validateRule('Plugins.Topcoder.ResourceRolesApiURI', 'ValidateRequired', t('You must provide Resource Roles API URI.'));
             $cf->form()->validateRule('Plugins.Topcoder.ResourcesApiURI', 'ValidateRequired', t('You must provide Resources API URI.'));
-            $isEmbedded = (bool)  c('Garden.Embed.Allow');
-            if ($isEmbedded) {
-                $cf->form()->validateRule('Plugins.Topcoder.MicroFrontendsForumsURL', 'ValidateRequired', t('You must provide Micro-Frontends Forums URL.'));
-            }
             $cf->form()->validateRule('Plugins.Topcoder.MemberProfileURL', 'ValidateRequired', t('You must provide Member Profile URL.'));
             if($cf->form()->getFormValue('Plugins.Topcoder.UseTopcoderAuthToken')  == 1) {
                 $cf->form()->validateRule('AuthenticationProvider.SignInUrl', 'ValidateRequired', t('You must provide SignIn URL.'));
@@ -213,7 +209,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.RoleApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Role API URI'],
             'Plugins.Topcoder.ResourceRolesApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Resource Roles API URI'],
             'Plugins.Topcoder.ResourcesApiURI' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Resources API URI'],
-            'Plugins.Topcoder.MicroFrontendsForumsURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Micro-Frontends Forums URL'],
             'Plugins.Topcoder.MemberProfileURL' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Member Profile URL'],
             'Plugins.Topcoder.UseTopcoderAuthToken' => ['Control' => 'CheckBox', 'Default' => false, 'Description' => 'Use Topcoder access token to log in to Vanilla'],
             'AuthenticationProvider.SignInUrl' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder SignIn URL'],
@@ -1964,67 +1959,19 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     // Support Micro-frontends forums app
     public function gdn_dispatcher_beforeDispatch_handler($sender, $args) {
-        $mfeUrl = c("Plugins.Topcoder.MicroFrontendsForumsURL");
-        $deliveryType =  Gdn::request()->getQueryItem("DeliveryType");
-        $remoteUrl =  Gdn::request()->getQueryItem("remote")? urldecode(Gdn::request()->getQueryItem("remote")):"";
+        $mfeUrl = c("Garden.Embed.RemoteUrl");
         $isEmbedded = (bool)  c('Garden.Embed.Allow', false);
 
         $data = array(
-            'Garden.Embed.Allow' => c('Garden.Embed.Allow'),
+            'Garden.Embed.Allow' => $isEmbedded,
             'MFEUrl' => $mfeUrl,
-            'RemoteQueryParam("remote")' => $remoteUrl,
-            'RemoteQueryParam("remote") == mfeUrl' => strcmp($mfeUrl, $remoteUrl) === 0,
             'Request(current fullPath)' => Gdn::request()->getFullPath(),
-            'Request(current url)'=> Gdn::request()->getUrl(),
-            'currentUrl == mfeUrl' => strcmp($mfeUrl, Gdn::request()->getUrl()) === 0,
             'Request(pathAndQuery)' => Gdn::request()->pathAndQuery(),
             'Request(Method)'=> Gdn::request()->getMethod(),
-            'Request(DeliveryType)' =>Gdn::request()->getQueryItem("DeliveryType"),
-            'Request(DeliveryType calculated)'=> !($deliveryType == "" || $deliveryType == DELIVERY_TYPE_ALL),
             'Permissions' => Gdn::session()->getPermissionsArray(),
-    );
+        );
         logMessage(__FILE__, __LINE__, 'TopcoderPlugin', "Data", json_encode($data ));
-
-        self::log('gdn_dispatcher_beforeDispatch_handler', $data);
-
-
-        if(!$isEmbedded) {
-            return;
-        }
-
-        if(Gdn::request()->getMethod() != Gdn::request()::METHOD_GET) {
-            return;
-        }
-        if(stringBeginsWith(Gdn::request()->getPath(), '/api/') || stringBeginsWith(Gdn::request()->getPath(), '/dashboard')
-            || stringBeginsWith(Gdn::request()->getPath(), '/settings')
-            || stringBeginsWith(Gdn::request()->getPath(), '/embed/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/social/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/vanilla/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/utility/') || stringBeginsWith(Gdn::request()->getPath(), '/notifications/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/js/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/applications/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/themes/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/dist/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/css/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/plugins/')
-            || stringBeginsWith(Gdn::request()->getPath(), '/resources/')) {
-            return;
-        }
-
-        if(!($deliveryType == "" || $deliveryType == DELIVERY_TYPE_ALL)) {
-            return;
-        }
-        if(stringBeginsWith(Gdn::request()->getUrl(), $mfeUrl)) {
-             return;
-        }
-
-        if(strlen($remoteUrl) > 0){
-           return;
-        }  else {
-           safeHeader("HTTP/1.1 301 Moved Permanently");
-           safeHeader("Location: " . url($mfeUrl."/#/" . Gdn::request()->pathAndQuery()));
-           exit();
-        }
+        // self::log('gdn_dispatcher_beforeDispatch_handler', $data);
     }
 
     // Topcoder Cache is used for caching Topcoder Users by handle.
