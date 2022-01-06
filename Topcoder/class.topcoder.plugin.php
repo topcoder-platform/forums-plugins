@@ -947,6 +947,23 @@ class TopcoderPlugin extends Gdn_Plugin {
      * Add scripts. Add script to hide iPhone browser bar on pageload.
      */
     public function base_render_before($sender) {
+        if(isset($_SERVER['HTTP_REFERER'])) {
+            $url = $_SERVER['HTTP_REFERER'];
+            parse_str( parse_url( $url, PHP_URL_QUERY), $array );
+            $embedType = $array['mbed_type'];
+            if($embedType == 'mfe') {
+                $sender->addDefinition('MFEEmbedded', '1');
+                $sender->MasterView = 'mfe';
+              //  logMessage(__FILE__,__LINE__,'TopcoderPlugin','base_render_before',"Use Embed Master Template due to HTTP_REFERER".$url);
+            }
+        }
+
+        // Force view options
+        if(getIncomingValue('embed_type') == 'mfe') {
+            $sender->addDefinition('MFEEmbedded', '1');
+            $sender->MasterView = 'mfe';
+          //  logMessage(__FILE__,__LINE__,'TopcoderPlugin','base_render_before',"Use Embed Master Template due to Query Param");
+        }
         if (is_object($sender->Head)) {
             $sender->Head->addString($this->getJS());
         }
@@ -2450,7 +2467,7 @@ if (!function_exists('userPhoto')) {
         $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
         $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
-        $href = (val('NoLink', $options)) || $isUnlickableUser ? '' : ' href="'.url($userLink).'"';
+        $href = (val('NoLink', $options)) || $isUnlickableUser || getIncomingValue('embed_type') == 'mfe' ? '' : ' href="'.url($userLink).'"';
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['Title'] =& $title;
@@ -2540,7 +2557,7 @@ if (!function_exists('userAnchor')) {
         }
 
         // Go to Topcoder user profile link instead of Vanilla profile link
-        $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
+        $isUnlickableUser = getIncomingValue('embed_type') == 'mfe' || TopcoderPlugin::isUnclickableUser($name);
         $userUrl = $isUnlickableUser? '#' : topcoderUserUrl($user, $px);
 
         $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
