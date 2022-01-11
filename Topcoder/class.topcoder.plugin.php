@@ -943,6 +943,14 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
     }
 
+
+    public function base_beforeBuildBreadcrumbs_handler($sender, $args) {
+        if(Gdn::session()->isValid()) {
+            $showFullBreadcrumbs = & $args['ShowFullBreadcrumbs'];
+            //FIX  Issues-652: Client Manager - no navigation when embedded
+            $showFullBreadcrumbs = !hideInMFE();
+        }
+    }
     /**
      * Add scripts. Add script to hide iPhone browser bar on pageload.
      */
@@ -1770,6 +1778,21 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Check if the list of Topcoder roles includes 'Client Manager' role
+     * @param false $topcoderRoles
+     * @return bool true, if the list of Topcoder roles includes 'Client Manager'
+     */
+    private static function isTopcoderClientManager($topcoderRoles = false) {
+        if($topcoderRoles) {
+            $roleNames = array_column($topcoderRoles, 'roleName');
+            $lowerRoleNames = array_map('strtolower', $roleNames);
+            return count(array_intersect($lowerRoleNames, ["client manager"])) > 0;
+        }
+
+        return false;
+    }
+
+    /**
      * Get Topcoder Role names
      * @param false $topcoderRoles
      * @return array|false|null
@@ -1801,6 +1824,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
             $cachedUser['Roles'] = self::getTopcoderRoleNames($topcoderRoles);
             $cachedUser['IsAdmin'] = self::isTopcoderAdmin($topcoderRoles);
+            $cachedUser['IsClientManager'] = self::isTopcoderClientManager($topcoderRoles);
             $topcoderRating = self::loadTopcoderRating($username); //loaded by handle
             if($topcoderRating) {
                 $cachedUser['Rating'] = $topcoderRating;
@@ -2066,6 +2090,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
             $cachedUser['Roles'] = self::getTopcoderRoleNames($topcoderRoles);
             $cachedUser['IsAdmin'] = self::isTopcoderAdmin($topcoderRoles);
+            $cachedUser['IsClientManager'] = self::isTopcoderClientManager($topcoderRoles);
             $topcoderRating = self::loadTopcoderRating($topcoderHandle); //loaded by handle
             if($topcoderRating) {
                 $cachedUser['Rating'] = $topcoderRating;
@@ -2465,9 +2490,11 @@ if (!function_exists('userPhoto')) {
         }
 
         $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
+        $isTopcoderClientManager = val('IsClientManager', $topcoderProfile);
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
         $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
-        $href = (val('NoLink', $options)) || $isUnlickableUser || getIncomingValue('embed_type') == 'mfe' ? '' : ' href="'.url($userLink).'"';
+        $href = (val('NoLink', $options)) || $isUnlickableUser ||
+            ($isTopcoderClientManager && getIncomingValue('embed_type') == 'mfe') ? '' : ' href="'.url($userLink).'"';
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['Title'] =& $title;
@@ -2556,11 +2583,14 @@ if (!function_exists('userAnchor')) {
             $attributes['title'] = $options['title'];
         }
 
+        $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
+
         // Go to Topcoder user profile link instead of Vanilla profile link
-        $isUnlickableUser = getIncomingValue('embed_type') == 'mfe' || TopcoderPlugin::isUnclickableUser($name);
+        $isTopcoderClientManager = val('IsClientManager', $topcoderProfile);
+        $isUnlickableUser = ( $isTopcoderClientManager && getIncomingValue('embed_type') == 'mfe') || TopcoderPlugin::isUnclickableUser($name);
         $userUrl = $isUnlickableUser? '#' : topcoderUserUrl($user, $px);
 
-        $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
+
         $topcoderRating = val('Rating',$topcoderProfile, false);
         if($topcoderRating != false || $topcoderRating == null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
@@ -2866,5 +2896,23 @@ if (!function_exists('watchingSorts')) {
             $defaultUrl,
             'Sort'
         );
+    }
+}
+
+if (!function_exists('hideInMFE')) {
+    function hideInMFE() {
+        if (!Gdn::session()->isValid()) {
+            return false;
+        }
+        //FIX  Issues-652: Client Manager - no navigation when embedded
+        $isMFE = getIncomingValue('embed_type') == 'mfe';
+        $user = Gdn::userModel()->getID(Gdn::session()->UserID, DATASET_TYPE_ARRAY);
+        $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
+        $isTopcoderClientManager = val('IsClientManager', $topcoderProfile);
+
+        if ($isMFE && $isTopcoderClientManager) {
+              return true;
+        }
+        return false;
     }
 }
