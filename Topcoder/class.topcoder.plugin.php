@@ -1782,10 +1782,13 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param false $topcoderRoles
      * @return bool true, if the list of Topcoder roles includes 'Client Manager'
      */
-    private static function isTopcoderClientManager($topcoderRoles = false) {
+    public static function isTopcoderClientManager() {
+        if(!Gdn::session()->isValid()) {
+            return false;
+        }
+        $topcoderRoles =  Gdn::controller()->data("ChallengeCurrentUserProjectRoles");
         if($topcoderRoles) {
-            $roleNames = array_column($topcoderRoles, 'roleName');
-            $lowerRoleNames = array_map('strtolower', $roleNames);
+            $lowerRoleNames = array_map('strtolower', $topcoderRoles);
             return count(array_intersect($lowerRoleNames, ["client manager"])) > 0;
         }
 
@@ -1824,7 +1827,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
             $cachedUser['Roles'] = self::getTopcoderRoleNames($topcoderRoles);
             $cachedUser['IsAdmin'] = self::isTopcoderAdmin($topcoderRoles);
-            $cachedUser['IsClientManager'] = self::isTopcoderClientManager($topcoderRoles);
             $topcoderRating = self::loadTopcoderRating($username); //loaded by handle
             if($topcoderRating) {
                 $cachedUser['Rating'] = $topcoderRating;
@@ -1914,7 +1916,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             // if($sender->GroupModel) {
             //   $sender->GroupModel->setCurrentUserTopcoderProjectRoles($currentProjectRoles);
             // }
-            self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'currentUser' => $currentProjectRoles,
+            self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'CurrentUserProjectRoles' => $currentProjectRoles,
                 'Topcoder Resources' => $resources , 'Topcoder RoleResources'
                 => $roleResources, 'challenge' =>$challenge]);
         }
@@ -2011,7 +2013,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Request(Method)'=> Gdn::request()->getMethod(),
             'Permissions' => Gdn::session()->getPermissionsArray(),
         );
-        logMessage(__FILE__, __LINE__, 'TopcoderPlugin', "Data", json_encode($data ));
+        // logMessage(__FILE__, __LINE__, 'TopcoderPlugin', "Data", json_encode($data ));
         // self::log('gdn_dispatcher_beforeDispatch_handler', $data);
     }
 
@@ -2090,7 +2092,6 @@ class TopcoderPlugin extends Gdn_Plugin {
             $topcoderRoles = self::loadTopcoderRoles($topcoderProfile->userId);
             $cachedUser['Roles'] = self::getTopcoderRoleNames($topcoderRoles);
             $cachedUser['IsAdmin'] = self::isTopcoderAdmin($topcoderRoles);
-            $cachedUser['IsClientManager'] = self::isTopcoderClientManager($topcoderRoles);
             $topcoderRating = self::loadTopcoderRating($topcoderHandle); //loaded by handle
             if($topcoderRating) {
                 $cachedUser['Rating'] = $topcoderRating;
@@ -2490,7 +2491,7 @@ if (!function_exists('userPhoto')) {
         }
 
         $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
-        $isTopcoderClientManager = val('IsClientManager', $topcoderProfile);
+        $isTopcoderClientManager = TopcoderPlugin::isTopcoderClientManager();
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
         $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
         $href = (val('NoLink', $options)) || $isUnlickableUser ||
@@ -2586,7 +2587,7 @@ if (!function_exists('userAnchor')) {
         $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
 
         // Go to Topcoder user profile link instead of Vanilla profile link
-        $isTopcoderClientManager = val('IsClientManager', $topcoderProfile);
+        $isTopcoderClientManager = TopcoderPlugin::isTopcoderClientManager();
         $isUnlickableUser = ( $isTopcoderClientManager && getIncomingValue('embed_type') == 'mfe') || TopcoderPlugin::isUnclickableUser($name);
         $userUrl = $isUnlickableUser? '#' : topcoderUserUrl($user, $px);
 
@@ -2906,9 +2907,7 @@ if (!function_exists('hideInMFE')) {
         }
         //FIX  Issues-652: Client Manager - no navigation when embedded
         $isMFE = getIncomingValue('embed_type') == 'mfe';
-        $user = Gdn::userModel()->getID(Gdn::session()->UserID, DATASET_TYPE_ARRAY);
-        $topcoderProfile = TopcoderPlugin::getTopcoderUser($user);
-        $isTopcoderClientManager = val('IsClientManager', $topcoderProfile);
+        $isTopcoderClientManager = TopcoderPlugin::isTopcoderClientManager();
 
         if ($isMFE && $isTopcoderClientManager) {
               return true;
