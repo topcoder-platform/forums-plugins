@@ -897,7 +897,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             }
         } else if($args['Controller'] instanceof  GroupController) {
             if (array_key_exists('groupid', $methodArgs)) {
-                $groupID = (int) $methodArgs['groupid'];
+                $groupID = self::convertToGroupID($methodArgs['groupid']);
             }
         } else if($args['Controller'] instanceof  PostController) {
             if (array_key_exists('discussionid', $methodArgs)) {
@@ -943,6 +943,29 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
     }
 
+    private static function convertToGroupID($id) {
+        if(is_numeric($id) && $id > 0) {
+            return $id;
+        }
+
+        if(self::isValidUuid($id) === true) {
+            $categoryModel = new CategoryModel();
+            $category = $categoryModel->getByCode($id);
+            return val('GroupID', $category, 0);
+        }
+
+        return 0;
+    }
+
+    private static function isValidUuid($uuid) {
+        if(!is_string($uuid)) {
+            return false;
+        }
+        if (!\preg_match('/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/', $uuid)) {
+            return false;
+        }
+        return true;
+    }
 
     public function base_beforeBuildBreadcrumbs_handler($sender, $args) {
         if(Gdn::session()->isValid()) {
