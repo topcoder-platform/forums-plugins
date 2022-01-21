@@ -1624,6 +1624,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cachedChallenge['StartDate'] = $startDate;
             $cachedChallenge['EndDate'] = $endDate;
             $cachedChallenge['Track'] = $challenge->track;
+            $cachedChallenge['IsSelfService'] = $challenge->legacy->selfService;
             $termIDs = array_column($challenge->terms, 'id');
             $NDA_UUID = c('Plugins.Topcoder.NDA_UUID');
             $cachedChallenge['IsNDA'] = in_array($NDA_UUID, $termIDs);
@@ -1802,7 +1803,6 @@ class TopcoderPlugin extends Gdn_Plugin {
 
     /**
      * Check if the list of Topcoder roles includes 'Client Manager' role
-     * @param false $topcoderRoles
      * @return bool true, if the list of Topcoder roles includes 'Client Manager'
      */
     public static function isTopcoderClientManager() {
@@ -1813,6 +1813,22 @@ class TopcoderPlugin extends Gdn_Plugin {
         if($topcoderRoles) {
             $lowerRoleNames = array_map('strtolower', $topcoderRoles);
             return count(array_intersect($lowerRoleNames, ["client manager"])) > 0;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if the challenge has self-service flag
+     * @return bool true, if the challenge has self-service flag
+     */
+    public static function isChallengeSelfService() {
+        if(!Gdn::session()->isValid()) {
+            return false;
+        }
+        $challenge =  Gdn::controller()->data("Challenge");
+        if($challenge) {
+            return $challenge['IsSelfService'];
         }
 
         return false;
@@ -2936,5 +2952,14 @@ if (!function_exists('hideInMFE')) {
               return true;
         }
         return false;
+    }
+}
+
+if (!function_exists('isSelfService')) {
+    function isSelfService() {
+        if (!Gdn::session()->isValid()) {
+            return false;
+        }
+        return TopcoderPlugin::isChallengeSelfService();
     }
 }
