@@ -2387,6 +2387,30 @@ class TopcoderPlugin extends Gdn_Plugin {
         $sender->_setBreadcrumbs($sender->data('Title'), $sender->canonicalUrl());
         $sender->render();
     }
+
+    // All notified users have been added in an activity
+    public function activityModel_BeforeCheckPreference_handler($sender, $args) {
+        $activity = &$args['Data'];
+        $notifyUserID = val('NotifyUserID', $activity);
+        $userModel = new UserModel();
+        $user = $userModel->getID($notifyUserID);
+        $data = $activity['Data'];
+        $challengeID = $data['ChallengeID'];
+        if($challengeID) {
+            $resources = $this->getChallengeResources($challengeID);
+            $roleResources = $this->getRoleResources();
+            $currentProjectRoles = $this->getTopcoderProjectRoles($user, $resources, $roleResources);
+            if($currentProjectRoles) {
+                $currentProjectRoles =  array_map('strtolower',$currentProjectRoles);
+                $isClientManager = count(array_intersect($currentProjectRoles, ["client manager"])) > 0;
+                if($isClientManager) {
+                    $activity['Data']['EmailUrl'] = val('EmbedUrl',$data);
+                    return;
+                }
+            }
+        }
+        $activity['Data']['EmailUrl'] = externalUrl(val('Route', $activity) == '' ? '/' : val('Route', $activity));
+    }
 }
 
 if(!function_exists('topcoderRatingCssClass')) {
