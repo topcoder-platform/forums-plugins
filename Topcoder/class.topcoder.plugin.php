@@ -2412,7 +2412,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                     $activity['HeadlineFormat'] = $headline;
                     $activity['Headline'] = $headline;
                     $activity['Story']= sprintf('A new message has been posted on your work forum tied to your Topcoder Work "%s". You can read the full message below.<br/> 
-To answer, click here to be taken to this discussion.<br/> 
+To answer, click "Open Discussion" below to be taken to this discussion.<br/> 
 Please do not reply to this email.<br/> 
 Thank you! 
 The Topcoder Team', $categoryName);
