@@ -2388,7 +2388,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $sender->render();
     }
 
-    // All notified users have been added in an activity
+    // All notified users have been added in an activity. This called before adding an activity in an activity Queue and sending+saving it in DB
     public function activityModel_BeforeCheckPreference_handler($sender, $args) {
         $activity = &$args['Data'];
         $notifyUserID = val('NotifyUserID', $activity);
@@ -2405,11 +2405,23 @@ class TopcoderPlugin extends Gdn_Plugin {
                 $isClientManager = count(array_intersect($currentProjectRoles, ["client manager"])) > 0;
                 if($isClientManager) {
                     $activity['Data']['EmailUrl'] = val('EmbedUrl',$data);
+                    $activity['Data']['EmailTemplate'] = 'email-selfservice';
+                    $category = CategoryModel::categories($challengeID);
+                    $categoryName = val('Name', $category);
+                    $headline = 'Message From a Topcoder Member on Your Work - Please See';
+                    $activity['HeadlineFormat'] = $headline;
+                    $activity['Headline'] = $headline;
+                    $activity['Story']= sprintf('A new message has been posted on your work forum tied to your Topcoder Work "%s". You can read the full message below.<br/> 
+To answer, click here to be taken to this discussion.<br/> 
+Please do not reply to this email.<br/> 
+Thank you! 
+The Topcoder Team', $categoryName);
                     return;
                 }
             }
         }
         $activity['Data']['EmailUrl'] = externalUrl(val('Route', $activity) == '' ? '/' : val('Route', $activity));
+        $activity['Data']['EmailTemplate'] = 'email-basic';
     }
 }
 
