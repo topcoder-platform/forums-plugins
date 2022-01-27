@@ -2428,7 +2428,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                               //  '<p><span>Category: ' . implode('›', $categoryBreadcrumbs) . '</p>' .
                                 '<p><span>Message:</span> ' . $message . '</p>' .
                                 '<hr/>'.
-                                '<p>To answer, <a target="_blank" href="'. val('EmbedUrl', $data).'">click here</a> to be taken to this discussion.<br/> 
+                                '<p>To answer, click "Open Discussion" below to be taken to this discussion.<br/> 
     Please do not reply to this email.<br/> 
     Thank you! 
     The Topcoder Team</p>' .
@@ -2463,7 +2463,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                                     '</p>' .
                                     '<hr/>';
                             }
-                            $activity['Story'] .= '<p>To answer, <a target="_blank" href="'. val('EmbedUrl', $data).'">click here</a> to be taken to this discussion.<br/>  
+                            $activity['Story'] .= '<p>To answer, click "Open Discussion" below to be taken to this discussion.<br/>  
 Please do not reply to this email.<br/> 
 Thank you! 
 The Topcoder Team</p>';
