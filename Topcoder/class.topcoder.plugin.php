@@ -2397,27 +2397,86 @@ class TopcoderPlugin extends Gdn_Plugin {
         $data = $activity['Data'];
         $challengeID = $data['ChallengeID'];
         if($challengeID) {
-            $resources = $this->getChallengeResources($challengeID);
-            $roleResources = $this->getRoleResources();
-            $currentProjectRoles = $this->getTopcoderProjectRoles($user, $resources, $roleResources);
-            if($currentProjectRoles) {
-                $currentProjectRoles =  array_map('strtolower',$currentProjectRoles);
-                $isClientManager = count(array_intersect($currentProjectRoles, ["client manager"])) > 0;
-                if($isClientManager) {
-                    $activity['Data']['EmailUrl'] = val('EmbedUrl',$data);
-                    $activity['Data']['EmailTemplate'] = 'email-selfservice';
-                    $category = CategoryModel::categories($challengeID);
-                    $categoryName = val('Name', $category);
-                    $headline = 'Message From a Topcoder Member on Your Work - Please See';
-                    $activity['HeadlineFormat'] = $headline;
-                    $activity['Headline'] = $headline;
-                    $activity['Story']= sprintf('A new message has been posted on your work forum tied to your Topcoder Work "%s". You can read the full message below.<br/> 
-To answer, click here to be taken to this discussion.<br/> 
+            $activityType = $activity['RecordType'];
+            if($activityType == 'Discussion' || $activityType == 'Comment') {
+                $resources = $this->getChallengeResources($challengeID);
+                $roleResources = $this->getRoleResources();
+                $currentProjectRoles = $this->getTopcoderProjectRoles($user, $resources, $roleResources);
+                if($currentProjectRoles) {
+                    $currentProjectRoles = array_map('strtolower', $currentProjectRoles);
+                    $isClientManager = count(array_intersect($currentProjectRoles, ["client manager"])) > 0;
+                    if ($isClientManager) {
+                        $recordID = $activity['RecordID'];
+                        $category = CategoryModel::categories($challengeID);
+                        $categoryName = val('Name', $category);
+                        $userModel = new UserModel();
+                        $discussionModel = new DiscussionModel();
+                        if ($activityType == 'Discussion') {
+                            $discussion = $discussionModel->getID($recordID);
+                            $message = Gdn::formatService()->renderQuote(val('Body', $discussion), val('Format', $discussion));
+                            $author = $userModel->getID(val('InsertUserID', $discussion));
+                            $dateInserted = Gdn_Format::dateFull(val('DateInserted',$discussion));
+                          // $categoryBreadcrumbs = array_column(array_values(CategoryModel::getAncestors(val('CategoryID',$discussion))), 'Name');
+
+                            $activity['Story'] =
+                                '<p>A new message has been posted on your work forum tied to your Topcoder Work "' . $categoryName . '" ' .
+                                'which was updated ' . $dateInserted . ' by ' . $author->Name . ':<p/>' .
+                                '<hr/>' .
+                                '<div style="padding: 0; margin: 0">' .
+                                '<p><span>Discussion: ' . val('Name', $discussion) . '</p>' .
+                                '<p><span>Author: ' . val('Name', $author) . '</p>' .
+                              //  '<p><span>Category: ' . implode('›', $categoryBreadcrumbs) . '</p>' .
+                                '<p><span>Message:</span> ' . $message . '</p>' .
+                                '<hr/>'.
+                                '<p>To answer, <a target="_blank" href="'. val('EmbedUrl', $data).'">click here</a> to be taken to this discussion.<br/> 
+    Please do not reply to this email.<br/> 
+    Thank you! 
+    The Topcoder Team</p>' .
+                                '</div>' .
+                                '<hr/>';
+
+                        } else { // Comment
+                            $commentModel = new CommentModel();
+                            $comment = $commentModel->getID($recordID);
+                            // $discussion = $discussionModel->getID(val('DiscussionID', $comment));
+                            //   $discussionName = val('Name',$discussion);
+                             $commentDateInserted = Gdn_Format::dateFull(val('DateInserted',$comment));
+                             $commentAuthor = $userModel->getID(val('InsertUserID',$comment));
+                             $commentStory = Gdn::formatService()->renderQuote(val('Body',$comment), val('Format',$comment));
+                             $activity['Story'] =
+                                '<p>A new message has been posted on your work forum tied to your Topcoder Work "' . $categoryName . '" ' .
+                                'which was updated ' . $commentDateInserted . ' by ' . val('Name',$commentAuthor) . ':</p>' .
+                                '<hr/>' .
+                                '<p class="label"><span style="display: block">Message:</span>'.'</p>' .
+                                $commentStory .
+                                '<br/><hr/>';
+
+                            $parentCommentID = (int)val('ParentCommentID',$comment);
+                            if($parentCommentID > 0) {
+                                $parentComment = $commentModel->getID($parentCommentID, DATASET_TYPE_ARRAY);
+                                $parentCommentAuthor = $userModel->getID($parentComment['InsertUserID']);
+                                $parentCommentStory = condense(Gdn_Format::to($parentComment['Body'], $parentComment['Format']));
+                                $activity['Story'] .=
+                                    '<p class="label">Original Message (by '.$parentCommentAuthor->Name.' ):</p>'.
+                                    '<p>' .
+                                    $parentCommentStory.
+                                    '</p>' .
+                                    '<hr/>';
+                            }
+                            $activity['Story'] .= '<p>To answer, <a target="_blank" href="'. val('EmbedUrl', $data).'">click here</a> to be taken to this discussion.<br/>  
 Please do not reply to this email.<br/> 
 Thank you! 
-The Topcoder Team', $categoryName);
-                    return;
-                }
+The Topcoder Team</p>';
+                        }
+
+                        $headline = 'Message From a Topcoder Member on Your Work - Please See';
+                        $activity['HeadlineFormat'] = $headline;
+                        $activity['Headline'] = $headline;
+                        $activity['Data']['EmailUrl'] = val('EmbedUrl', $data);
+                        $activity['Data']['EmailTemplate'] = 'email-selfservice';
+                        return;
+                    }
+               }
             }
         }
         $activity['Data']['EmailUrl'] = externalUrl(val('Route', $activity) == '' ? '/' : val('Route', $activity));
