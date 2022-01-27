@@ -2419,7 +2419,7 @@ class TopcoderPlugin extends Gdn_Plugin {
                           // $categoryBreadcrumbs = array_column(array_values(CategoryModel::getAncestors(val('CategoryID',$discussion))), 'Name');
 
                             $activity['Story'] =
-                                '<p>Hi there,</p>'
+                                '<p>Hi there,</p>' .
                                 '<p>A new message has been posted on your work forum tied to your Topcoder Work "' . $categoryName . '" ' .
                                 'which was updated ' . $dateInserted . ' by ' . $author->Name . ':<p/>' .
                                 '<hr/>' .
