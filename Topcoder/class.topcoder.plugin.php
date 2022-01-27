@@ -2420,7 +2420,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                             $activity['Story'] =
                                 '<p>Hi there,</p>' .
-                                '<p>A new message has been posted on your work forum tied to your Topcoder Work "' . $categoryName . '" ' .
+                                '<p>A new message has been posted on the discussion tied to your Topcoder Work "' . $categoryName . '" ' .
                                 'which was updated ' . $dateInserted . ' by ' . $author->Name . ':<p/>' .
                                 '<hr/>' .
                                 '<div style="padding: 0; margin: 0">' .
@@ -2445,7 +2445,8 @@ class TopcoderPlugin extends Gdn_Plugin {
                              $commentAuthor = $userModel->getID(val('InsertUserID',$comment));
                              $commentStory = Gdn::formatService()->renderQuote(val('Body',$comment), val('Format',$comment));
                              $activity['Story'] =
-                                '<p>A new message has been posted on your work forum tied to your Topcoder Work "' . $categoryName . '" ' .
+                                '<p>Hi there,</p>' .
+                                '<p>A new message has been posted on the discussion tied to your Topcoder Work "' . $categoryName . '" ' .
                                 'which was updated ' . $commentDateInserted . ' by ' . val('Name',$commentAuthor) . ':</p>' .
                                 '<hr/>' .
                                 '<p class="label"><span style="display: block">Message:</span>'.'</p>' .
