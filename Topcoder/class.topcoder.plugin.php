@@ -934,11 +934,12 @@ class TopcoderPlugin extends Gdn_Plugin {
             $group = $groupModel->getByGroupID($groupID);
             $category = $categoryModel->getByCode($group->ChallengeID);
             $categoryID= val('CategoryID', $category);
-            Gdn::controller()->setData('Breadcrumbs.Options.GroupCategoryID',  $categoryID);
-            Gdn::controller()->setData('Breadcrumbs.Options.GroupID', $groupID);
-            Gdn::controller()->setData('Breadcrumbs.Options.ChallengeID', $group->ChallengeID);
+            $controller = $args['Controller'];
+            $controller->setData('BreadcrumbsOptionsGroupCategoryID',  $categoryID);
+            $controller->setData('BreadcrumbsOptionsGroupID', $groupID);
+            $controller->setData('BreadcrumbsOptionsChallengeID', $group->ChallengeID);
             if ($group->ChallengeID) {
-                $this->setTopcoderProjectData($args['Controller'], $group->ChallengeID);
+                $this->setTopcoderProjectData($controller, $group->ChallengeID);
             }
         }
     }
@@ -3036,15 +3037,20 @@ if (!function_exists('watchingSorts')) {
     }
 }
 
+if (!function_exists('isMFE')) {
+    function isMFE() {
+        return getIncomingValue('embed_type') == 'mfe';
+    }
+}
+
 if (!function_exists('hideInMFE')) {
     function hideInMFE() {
         if (!Gdn::session()->isValid()) {
             return false;
         }
         //FIX  Issues-652: Client Manager - no navigation when embedded
-        $isMFE = getIncomingValue('embed_type') == 'mfe';
+        $isMFE = isMFE();
         $isTopcoderClientManager = TopcoderPlugin::isTopcoderClientManager();
-
         if ($isMFE && $isTopcoderClientManager) {
               return true;
         }
