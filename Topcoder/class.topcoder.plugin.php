@@ -284,6 +284,8 @@ class TopcoderPlugin extends Gdn_Plugin {
         if(!c('Garden.Installed')) {
             return;
         }
+        self::log('Embedded Settings', ['Garden.Embed.Allow' => c('Garden.Embed.Allow')]);
+
         self::log('Cache', ['Active Cache' => Gdn_Cache::activeCache(), 'Type' =>Gdn::cache()->type()]);
 
         if(!$this->isDefault()) {
@@ -895,7 +897,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             }
         } else if($args['Controller'] instanceof  GroupController) {
             if (array_key_exists('groupid', $methodArgs)) {
-                $groupID = (int) $methodArgs['groupid'];
+                $groupID = self::convertToGroupID($methodArgs['groupid']);
             }
         } else if($args['Controller'] instanceof  PostController) {
             if (array_key_exists('discussionid', $methodArgs)) {
@@ -932,19 +934,68 @@ class TopcoderPlugin extends Gdn_Plugin {
             $group = $groupModel->getByGroupID($groupID);
             $category = $categoryModel->getByCode($group->ChallengeID);
             $categoryID= val('CategoryID', $category);
-            Gdn::controller()->setData('Breadcrumbs.Options.GroupCategoryID',  $categoryID);
-            Gdn::controller()->setData('Breadcrumbs.Options.GroupID', $groupID);
-            Gdn::controller()->setData('Breadcrumbs.Options.ChallengeID', $group->ChallengeID);
+            $controller = $args['Controller'];
+            $controller->setData('BreadcrumbsOptionsGroupCategoryID',  $categoryID);
+            $controller->setData('BreadcrumbsOptionsGroupID', $groupID);
+            $controller->setData('BreadcrumbsOptionsChallengeID', $group->ChallengeID);
             if ($group->ChallengeID) {
-                $this->setTopcoderProjectData($args['Controller'], $group->ChallengeID);
+                $this->setTopcoderProjectData($controller, $group->ChallengeID);
             }
         }
     }
 
+    private static function convertToGroupID($id) {
+        if(is_numeric($id) && $id > 0) {
+            return $id;
+        }
+
+        if(self::isValidUuid($id) === true) {
+            $categoryModel = new CategoryModel();
+            $category = $categoryModel->getByCode($id);
+            return val('GroupID', $category, 0);
+        }
+
+        return 0;
+    }
+
+    private static function isValidUuid($uuid) {
+        if(!is_string($uuid)) {
+            return false;
+        }
+        if (!\preg_match('/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/', $uuid)) {
+            return false;
+        }
+        return true;
+    }
+
+    public function base_beforeBuildBreadcrumbs_handler($sender, $args) {
+        if(Gdn::session()->isValid()) {
+            $showFullBreadcrumbs = & $args['ShowFullBreadcrumbs'];
+            //FIX  Issues-652: Client Manager - no navigation when embedded
+            $showFullBreadcrumbs = !hideInMFE();
+        }
+    }
     /**
      * Add scripts. Add script to hide iPhone browser bar on pageload.
      */
     public function base_render_before($sender) {
+        if(isset($_SERVER['HTTP_REFERER'])) {
+            $url = $_SERVER['HTTP_REFERER'];
+            parse_str( parse_url( $url, PHP_URL_QUERY), $array );
+            $embedType = $array['mbed_type'];
+            if($embedType == 'mfe') {
+                $sender->addDefinition('MFEEmbedded', '1');
+                $sender->MasterView = 'mfe';
+              //  logMessage(__FILE__,__LINE__,'TopcoderPlugin','base_render_before',"Use Embed Master Template due to HTTP_REFERER".$url);
+            }
+        }
+
+        // Force view options
+        if(getIncomingValue('embed_type') == 'mfe') {
+            $sender->addDefinition('MFEEmbedded', '1');
+            $sender->MasterView = 'mfe';
+          //  logMessage(__FILE__,__LINE__,'TopcoderPlugin','base_render_before',"Use Embed Master Template due to Query Param");
+        }
         if (is_object($sender->Head)) {
             $sender->Head->addString($this->getJS());
         }
@@ -1574,6 +1625,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             $cachedChallenge['StartDate'] = $startDate;
             $cachedChallenge['EndDate'] = $endDate;
             $cachedChallenge['Track'] = $challenge->track;
+            $cachedChallenge['IsSelfService'] = $challenge->legacy->selfService;
             $termIDs = array_column($challenge->terms, 'id');
             $NDA_UUID = c('Plugins.Topcoder.NDA_UUID');
             $cachedChallenge['IsNDA'] = in_array($NDA_UUID, $termIDs);
@@ -1751,6 +1803,39 @@ class TopcoderPlugin extends Gdn_Plugin {
     }
 
     /**
+     * Check if the list of Topcoder roles includes 'Client Manager' role
+     * @return bool true, if the list of Topcoder roles includes 'Client Manager'
+     */
+    public static function isTopcoderClientManager() {
+        if(!Gdn::session()->isValid()) {
+            return false;
+        }
+        $topcoderRoles =  Gdn::controller()->data("ChallengeCurrentUserProjectRoles");
+        if($topcoderRoles) {
+            $lowerRoleNames = array_map('strtolower', $topcoderRoles);
+            return count(array_intersect($lowerRoleNames, ["client manager"])) > 0;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if the challenge has self-service flag
+     * @return bool true, if the challenge has self-service flag
+     */
+    public static function isChallengeSelfService() {
+        if(!Gdn::session()->isValid()) {
+            return false;
+        }
+        $challenge =  Gdn::controller()->data("Challenge");
+        if($challenge) {
+            return $challenge['IsSelfService'];
+        }
+
+        return false;
+    }
+
+    /**
      * Get Topcoder Role names
      * @param false $topcoderRoles
      * @return array|false|null
@@ -1871,7 +1956,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             // if($sender->GroupModel) {
             //   $sender->GroupModel->setCurrentUserTopcoderProjectRoles($currentProjectRoles);
             // }
-            self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'currentUser' => $currentProjectRoles,
+            self::log('setTopcoderProjectData', ['ChallengeID' => $challengeID, 'CurrentUserProjectRoles' => $currentProjectRoles,
                 'Topcoder Resources' => $resources , 'Topcoder RoleResources'
                 => $roleResources, 'challenge' =>$challenge]);
         }
@@ -1955,11 +2040,21 @@ class TopcoderPlugin extends Gdn_Plugin {
         return $cached;
     }
 
-    // TODO: Debugging issues-108
+    // Support Micro-frontends forums app
     public function gdn_dispatcher_beforeDispatch_handler($sender, $args) {
-        self::log('gdn_dispatcher_beforeDispatch_handler', [
+        $mfeUrl = c("Garden.Embed.RemoteUrl");
+        $isEmbedded = (bool)  c('Garden.Embed.Allow', false);
+
+        $data = array(
+            'Garden.Embed.Allow' => $isEmbedded,
+            'MFEUrl' => $mfeUrl,
+            'Request(current fullPath)' => Gdn::request()->getFullPath(),
+            'Request(pathAndQuery)' => Gdn::request()->pathAndQuery(),
+            'Request(Method)'=> Gdn::request()->getMethod(),
             'Permissions' => Gdn::session()->getPermissionsArray(),
-        ]);
+        );
+        // logMessage(__FILE__, __LINE__, 'TopcoderPlugin', "Data", json_encode($data ));
+        // self::log('gdn_dispatcher_beforeDispatch_handler', $data);
     }
 
     // Topcoder Cache is used for caching Topcoder Users by handle.
@@ -2293,6 +2388,103 @@ class TopcoderPlugin extends Gdn_Plugin {
         $sender->_setBreadcrumbs($sender->data('Title'), $sender->canonicalUrl());
         $sender->render();
     }
+
+    // All notified users have been added in an activity. This called before adding an activity in an activity Queue and sending+saving it in DB
+    public function activityModel_BeforeCheckPreference_handler($sender, $args) {
+        $activity = &$args['Data'];
+        $notifyUserID = val('NotifyUserID', $activity);
+        $userModel = new UserModel();
+        $user = $userModel->getID($notifyUserID);
+        $data = $activity['Data'];
+        $challengeID = $data['ChallengeID'];
+        if($challengeID) {
+            $activityType = $activity['RecordType'];
+            if($activityType == 'Discussion' || $activityType == 'Comment') {
+                $resources = $this->getChallengeResources($challengeID);
+                $roleResources = $this->getRoleResources();
+                $currentProjectRoles = $this->getTopcoderProjectRoles($user, $resources, $roleResources);
+                if($currentProjectRoles) {
+                    $currentProjectRoles = array_map('strtolower', $currentProjectRoles);
+                    $isClientManager = count(array_intersect($currentProjectRoles, ["client manager"])) > 0;
+                    if ($isClientManager) {
+                        $recordID = $activity['RecordID'];
+                        $category = CategoryModel::categories($challengeID);
+                        $categoryName = val('Name', $category);
+                        $userModel = new UserModel();
+                        $discussionModel = new DiscussionModel();
+                        if ($activityType == 'Discussion') {
+                            $discussion = $discussionModel->getID($recordID);
+                            $message = Gdn::formatService()->renderQuote(val('Body', $discussion), val('Format', $discussion));
+                            $author = $userModel->getID(val('InsertUserID', $discussion));
+                            $dateInserted = Gdn_Format::dateFull(val('DateInserted',$discussion));
+                          // $categoryBreadcrumbs = array_column(array_values(CategoryModel::getAncestors(val('CategoryID',$discussion))), 'Name');
+
+                            $activity['Story'] =
+                                '<p>Hi there,</p>' .
+                                '<p>A new message has been posted on the discussion tied to your Topcoder Work "' . $categoryName . '" ' .
+                                'which was updated ' . $dateInserted . ' by ' . $author->Name . ':<p/>' .
+                                '<hr/>' .
+                                '<div style="padding: 0; margin: 0">' .
+                                '<p><span>Discussion: ' . val('Name', $discussion) . '</p>' .
+                                '<p><span>Author: ' . val('Name', $author) . '</p>' .
+                              //  '<p><span>Category: ' . implode('›', $categoryBreadcrumbs) . '</p>' .
+                                '<p><span>Message:</span> ' . $message . '</p>' .
+                                '<hr/>'.
+                                '<p>To answer, click "Open Discussion" below to be taken to this discussion.<br/> 
+    Please do not reply to this email.<br/> 
+    Thank you! 
+    The Topcoder Team</p>' .
+                                '</div>' .
+                                '<hr/>';
+
+                        } else { // Comment
+                            $commentModel = new CommentModel();
+                            $comment = $commentModel->getID($recordID);
+                            // $discussion = $discussionModel->getID(val('DiscussionID', $comment));
+                            //   $discussionName = val('Name',$discussion);
+                             $commentDateInserted = Gdn_Format::dateFull(val('DateInserted',$comment));
+                             $commentAuthor = $userModel->getID(val('InsertUserID',$comment));
+                             $commentStory = Gdn::formatService()->renderQuote(val('Body',$comment), val('Format',$comment));
+                             $activity['Story'] =
+                                '<p>Hi there,</p>' .
+                                '<p>A new message has been posted on the discussion tied to your Topcoder Work "' . $categoryName . '" ' .
+                                'which was updated ' . $commentDateInserted . ' by ' . val('Name',$commentAuthor) . ':</p>' .
+                                '<hr/>' .
+                                '<p class="label"><span style="display: block">Message:</span>'.'</p>' .
+                                $commentStory .
+                                '<br/><hr/>';
+
+                            $parentCommentID = (int)val('ParentCommentID',$comment);
+                            if($parentCommentID > 0) {
+                                $parentComment = $commentModel->getID($parentCommentID, DATASET_TYPE_ARRAY);
+                                $parentCommentAuthor = $userModel->getID($parentComment['InsertUserID']);
+                                $parentCommentStory = condense(Gdn_Format::to($parentComment['Body'], $parentComment['Format']));
+                                $activity['Story'] .=
+                                    '<p class="label">Original Message (by '.$parentCommentAuthor->Name.' ):</p>'.
+                                    '<p>' .
+                                    $parentCommentStory.
+                                    '</p>' .
+                                    '<hr/>';
+                            }
+                            $activity['Story'] .= '<p>To answer, click "Open Discussion" below to be taken to this discussion.<br/>  
+Please do not reply to this email.<br/> 
+Thank you! 
+The Topcoder Team</p>';
+                        }
+
+                        $headline = 'Message From a Topcoder Member on Your Work - Please See';
+                        $activity['HeadlineFormat'] = $headline;
+                        $activity['Headline'] = $headline;
+                        $activity['Data']['EmailUrl'] = val('EmbedUrl', $data);
+                        $activity['Data']['EmailTemplate'] = 'email-selfservice';
+                        return;
+                    }
+               }
+            }
+        }
+        $activity['Data']['EmailUrl'] = externalUrl(val('Route', $activity) == '' ? '/' : val('Route', $activity));
+        $activity['Data']['EmailTemplate'] = 'email-basic';
+    }
 }
 
 if(!function_exists('topcoderRatingCssClass')) {
@@ -2436,9 +2628,11 @@ if (!function_exists('userPhoto')) {
         }
 
         $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
+        $isTopcoderClientManager = TopcoderPlugin::isTopcoderClientManager();
         $photoUrl = isset($photoUrl) && !empty(trim($photoUrl)) ? $photoUrl: UserModel::getDefaultAvatarUrl();
         $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
-        $href = (val('NoLink', $options)) || $isUnlickableUser ? '' : ' href="'.url($userLink).'"';
+        $href = (val('NoLink', $options)) || $isUnlickableUser ||
+            ($isTopcoderClientManager && getIncomingValue('embed_type') == 'mfe') ? '' : ' href="'.url($userLink).'"';
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['Title'] =& $title;
@@ -2527,11 +2721,14 @@ if (!function_exists('userAnchor')) {
             $attributes['title'] = $options['title'];
         }
 
+        $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
+
         // Go to Topcoder user profile link instead of Vanilla profile link
-        $isUnlickableUser = TopcoderPlugin::isUnclickableUser($name);
+        $isTopcoderClientManager = TopcoderPlugin::isTopcoderClientManager();
+        $isUnlickableUser = ( $isTopcoderClientManager && getIncomingValue('embed_type') == 'mfe') || TopcoderPlugin::isUnclickableUser($name);
         $userUrl = $isUnlickableUser? '#' : topcoderUserUrl($user, $px);
 
-        $topcoderProfile = TopcoderPlugin::getTopcoderUser($userID);
+
         $topcoderRating = val('Rating',$topcoderProfile, false);
         if($topcoderRating != false || $topcoderRating == null) {
             $coderStyles = TopcoderPlugin::getRatingCssClass($topcoderRating);
@@ -2837,5 +3034,35 @@ if (!function_exists('watchingSorts')) {
             $defaultUrl,
             'Sort'
         );
+    }
+}
+
+if (!function_exists('isMFE')) {
+    function isMFE() {
+        return getIncomingValue('embed_type') == 'mfe';
+    }
+}
+
+if (!function_exists('hideInMFE')) {
+    function hideInMFE() {
+        if (!Gdn::session()->isValid()) {
+            return false;
+        }
+        //FIX  Issues-652: Client Manager - no navigation when embedded
+        $isMFE = isMFE();
+        $isTopcoderClientManager = TopcoderPlugin::isTopcoderClientManager();
+        if ($isMFE && $isTopcoderClientManager) {
+              return true;
+        }
+        return false;
+    }
+}
+
+if (!function_exists('isSelfService')) {
+    function isSelfService() {
+        if (!Gdn::session()->isValid()) {
+            return false;
+        }
+        return TopcoderPlugin::isChallengeSelfService();
     }
 }
