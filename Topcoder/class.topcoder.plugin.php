@@ -505,6 +505,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                 if ($userID) {
                     $this->syncTopcoderRoles($userID,$topcoderRoles);
+                    $this->syncTopcoderEmail($userID,$decodedToken->getClaim('email'));
                     Gdn::authenticator()->setIdentity($userID, true);
                     Gdn::session()->start($userID, true);
                     Gdn::authenticator()->trigger(Gdn_Authenticator::AUTH_SUCCESS);
@@ -656,6 +657,45 @@ class TopcoderPlugin extends Gdn_Plugin {
         // Update roleIDs if there are any changes only
         if(count($result) > 0) {
             $userModel->saveRoles($userID, $mergedRoleIDs, false);
+        }
+    }
+
+    /**
+     * Sync the e-mail addressof Topcoder for an user
+     * @param $userID
+     * @param $roles array a list of role names
+     *
+     */
+    private function syncTopcoderEmail($userID,$topcoder_email) {
+        $userModel = new UserModel();
+        $user = $userModel->getID($userID);
+        $vanilla_email = val('Email', $user);
+
+        // Update if two e-mail addresses are different
+        if($vanilla_email !== $topcoder_email) {
+            $userData = [
+                "UserID" => $userID,
+                "Email" => $topcoder_email,
+                "EmailConfirmed" => true
+            ];
+
+            $settings = [
+                'NoConfirmEmail' => true
+            ];
+            $ret = $userModel->save($userData, $settings);
+            if($ret) {
+                $modified_user = $userModel->getID($userID);
+                $modified_email = val('Email', $user);
+                if($modified_email === $topcoder_email) {
+                    self::log('Succeeded to modify e-mail', ["new_email"=>$modified_email]);
+                } else {
+                    self::log('Failed to modify e-mail', []);
+                }
+            } else {
+                self::log('Failed to modify e-mail', []);
+            }
+        } else {
+            self::log('No need to modify e-mail.', []);
         }
     }
 
