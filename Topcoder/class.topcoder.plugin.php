@@ -505,6 +505,10 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                 if ($userID) {
                     $this->syncTopcoderRoles($userID,$topcoderRoles);
+                    if($decodedToken->hasClaim('email')) {
+                        $email = $decodedToken->getClaim('email');
+                        $this->syncTopcoderEmail($userID, $email);
+                    }
                     Gdn::authenticator()->setIdentity($userID, true);
                     Gdn::session()->start($userID, true);
                     Gdn::authenticator()->trigger(Gdn_Authenticator::AUTH_SUCCESS);
@@ -656,6 +660,23 @@ class TopcoderPlugin extends Gdn_Plugin {
         // Update roleIDs if there are any changes only
         if(count($result) > 0) {
             $userModel->saveRoles($userID, $mergedRoleIDs, false);
+        }
+    }
+
+    /**
+     * Sync a email of Topcoder user
+     * @param $userID
+     * @param $email Email of Topcoder user
+     *
+     */
+    private function syncTopcoderEmail($userID, $email) {
+        $userModel = new UserModel();
+        $user = $userModel->getID($userID, DATASET_TYPE_ARRAY);
+        $currentEmail = val('Email', $user)
+
+        // Update email if there are any changes only
+        if($currentEmail !== $email) {
+            $userModel->setField($userID, 'Email', $email);
         }
     }
 
