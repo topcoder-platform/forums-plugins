@@ -133,6 +133,7 @@ class TopcoderConfigurationModule extends ConfigurationModule{
                 $authform = new Gdn_Form();
                 $authform->setModel($model);
                 $authform->setFormValue('AuthenticationKey','topcoder');
+                $authform->setFormValue('RegisterUrl' , $authenticationProviderData['RegisterUrl']);
                 $authform->setFormValue('SignInUrl' , $authenticationProviderData['SignInUrl']);
                 $authform->setFormValue('SignOutUrl' , $authenticationProviderData['SignOutUrl']);
                 $authform->setFormValue('IsDefault' , $authenticationProviderData['IsDefault']);
