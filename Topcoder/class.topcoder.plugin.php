@@ -219,6 +219,10 @@ class TopcoderPlugin extends Gdn_Plugin {
             'Plugins.Topcoder.SSO.CookieName' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Cookie Name'],
             'Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for HS256 JWT'],
             'Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Username Claim for RS256 JWT'],
+            'Plugins.Topcoder.SSO.TopcoderHS256.UserIDClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder User ID Claim for HS256 JWT'],
+            'Plugins.Topcoder.SSO.TopcoderRS256.UserIDClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder User ID Claim for RS256 JWT'],
+            'Plugins.Topcoder.SSO.TopcoderHS256.PhotoUrlClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Photo URL Claim for HS256 JWT'],
+            'Plugins.Topcoder.SSO.TopcoderRS256.PhotoUrlClaim' => ['Control' => 'TextBox', 'Default' => '', 'Description' => 'Topcoder Photo URL Claim for RS256 JWT'],
         ]);
 
         $cf->renderAll();
@@ -373,9 +377,13 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             $AUTH0_AUDIENCE = null;
             $USERNAME_CLAIM = null;
+            $PHOTOURL_CLAIM = null;
+            $USERID_CLAIM = null;
             if ($decodedToken->getHeader('alg') === 'RS256') {
                 $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderRS256.ID');
                 $USERNAME_CLAIM = c('Plugins.Topcoder.SSO.TopcoderRS256.UsernameClaim');
+                $USERID_CLAIM = c('Plugins.Topcoder.SSO.TopcoderRS256.UserIDClaim');
+                $PHOTOURL_CLAIM = c('Plugins.Topcoder.SSO.TopcoderRS256.PhotoUrlClaim');
                 $jwksUri = $issuer . '.well-known/jwks.json';
                 $jwksHttpOptions = ['base_uri' => $jwksUri];
                 $jwksFetcher = new JWKFetcher($this->cacheHandler, $jwksHttpOptions);
@@ -383,6 +391,8 @@ class TopcoderPlugin extends Gdn_Plugin {
 
             } else if ($decodedToken->getHeader('alg') === 'HS256') {
                 $USERNAME_CLAIM = c('Plugins.Topcoder.SSO.TopcoderHS256.UsernameClaim');
+                $USERID_CLAIM = c('Plugins.Topcoder.SSO.TopcoderHS256.UserIDClaim');
+                $PHOTOURL_CLAIM = c('Plugins.Topcoder.SSO.TopcoderHS256.PhotoUrlClaim');
                 $AUTH0_AUDIENCE = c('Plugins.Topcoder.SSO.TopcoderHS256.ID');
                 $CLIENT_H256SECRET = c('Plugins.Topcoder.SSO.TopcoderHS256.Secret');
                 $signatureVerifier = new SymmetricVerifier($CLIENT_H256SECRET);
@@ -450,8 +460,11 @@ class TopcoderPlugin extends Gdn_Plugin {
             $this->checkTopcoderRoles($topcoderRoles);
 
             $topcoderUserName = $decodedToken->getClaim($USERNAME_CLAIM);
+            $topcoderPhotoUrl = $decodedToken->getClaim($PHOTOURL_CLAIM);
+            $topcoderUserID = $decodedToken->getClaim($USERID_CLAIM);
+
             if ($topcoderUserName) {
-               self::log('Trying to signIn ...', ['username' => $topcoderUserName]);
+               self::log('Trying to signIn ...', ['username' => $topcoderUserName, 'topcoderId'=> $topcoderUserID ,  'photoUrl' => $topcoderPhotoUrl, ]);
 
                 $userModel = new UserModel();
                 $user = $userModel->getByUsername($topcoderUserName, false);
@@ -505,6 +518,7 @@ class TopcoderPlugin extends Gdn_Plugin {
 
                 if ($userID) {
                     $this->syncTopcoderRoles($userID,$topcoderRoles);
+                    $this->syncTopcoderEmail($userID,$decodedToken->getClaim('email'));
                     Gdn::authenticator()->setIdentity($userID, true);
                     Gdn::session()->start($userID, true);
                     Gdn::authenticator()->trigger(Gdn_Authenticator::AUTH_SUCCESS);
@@ -514,6 +528,10 @@ class TopcoderPlugin extends Gdn_Plugin {
                        self::log('The session could not be started.', []);
                         throw new ClientException('The session could not be started.', 401);
                     }
+
+                    Gdn::userModel()->saveAttribute(
+                        Gdn::session()->UserID,
+                        ['TopcoderUserID' => $topcoderUserID, 'TopcoderPhotoUrl' => $topcoderPhotoUrl]);
                 } else {
                    self::log('Go with the next Vanilla Authenticator', []);
                 }
@@ -656,6 +674,45 @@ class TopcoderPlugin extends Gdn_Plugin {
         // Update roleIDs if there are any changes only
         if(count($result) > 0) {
             $userModel->saveRoles($userID, $mergedRoleIDs, false);
+        }
+    }
+
+    /**
+     * Sync the e-mail addressof Topcoder for an user
+     * @param $userID
+     * @param $roles array a list of role names
+     *
+     */
+    private function syncTopcoderEmail($userID,$topcoder_email) {
+        $userModel = new UserModel();
+        $user = $userModel->getID($userID);
+        $vanilla_email = val('Email', $user);
+
+        // Update if two e-mail addresses are different
+        if($vanilla_email !== $topcoder_email) {
+            $userData = [
+                "UserID" => $userID,
+                "Email" => $topcoder_email,
+                "EmailConfirmed" => true
+            ];
+
+            $settings = [
+                'NoConfirmEmail' => true
+            ];
+            $ret = $userModel->save($userData, $settings);
+            if($ret) {
+                $modified_user = $userModel->getID($userID);
+                $modified_email = val('Email', $user);
+                if($modified_email === $topcoder_email) {
+                    self::log('Succeeded to modify e-mail', ["new_email"=>$modified_email]);
+                } else {
+                    self::log('Failed to modify e-mail', []);
+                }
+            } else {
+                self::log('Failed to modify e-mail', []);
+            }
+        } else {
+            self::log('No need to modify e-mail.', []);
         }
     }
 
