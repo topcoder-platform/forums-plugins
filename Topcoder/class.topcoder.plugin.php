@@ -2070,7 +2070,7 @@ class TopcoderPlugin extends Gdn_Plugin {
      * @param $user
      * @return array|false|mixed|void
      */
-    public static function hasCustomerRole($user) {
+    public static function hasColorizedRole($user) {
         $userModel = new UserModel();
         if(is_numeric($user)) {
             $user  = $userModel->getID($user, DATASET_TYPE_ARRAY);
@@ -2819,7 +2819,7 @@ if (!function_exists('userAnchor')) {
             $attributes['class'] = $attributes['class'].' '. 'disabledLink' ;
         }
 
-        $hasRole = TopcoderPlugin::hasCustomerRole($userID);
+        $hasRole = TopcoderPlugin::hasColorizedRole($userID);
         if($hasRole) {
             $attributes['class'] = $attributes['class'].' '. 'purple' ;
         }
@@ -3069,7 +3069,7 @@ if (!function_exists('topcoderMentionAnchor')) {
         $user = $userModel->getByUsername($handle, false);
         if ($user) {
             $userID = val('UserID', $user);
-            $hasRole = TopcoderPlugin::hasCustomerRole($userID);
+            $hasRole = TopcoderPlugin::hasColorizedRole($userID);
             if($hasRole) {
                 $attributes['class'] = $attributes['class'].' '. 'purple' ;
             }
