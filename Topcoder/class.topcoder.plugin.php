@@ -2065,6 +2065,24 @@ class TopcoderPlugin extends Gdn_Plugin {
         return $topcoderUser;
     }
 
+    /**
+     * Get Topcoder User Details (PhotoUrl, Rating, IsAdmin and others)
+     * @param $user
+     * @return array|false|mixed|void
+     */
+    public static function hasColorizedRole($user) {
+        $userModel = new UserModel();
+        if(is_numeric($user)) {
+            $user  = $userModel->getID($user, DATASET_TYPE_ARRAY);
+        }
+        $userID = val('UserID', $user);
+
+        $userRoleData = $userModel->getRoles($userID)->resultArray();
+        $roleNames = array_column($userRoleData, 'Name');
+        $customerRoleName = c('ColorizedRole', null);
+        return count(array_intersect($roleNames, [$customerRoleName])) > 0;
+    }
+
     private static function getTopcoderUserFromCache($userID) {
         if(!Gdn_Cache::activeEnabled()) {
             return false;
@@ -2801,6 +2819,10 @@ if (!function_exists('userAnchor')) {
             $attributes['class'] = $attributes['class'].' '. 'disabledLink' ;
         }
 
+        $hasRole = TopcoderPlugin::hasColorizedRole($userID);
+        if($hasRole) {
+            $attributes['class'] = $attributes['class'].' '. 'purple' ;
+        }
 
         Gdn::controller()->EventArguments['User'] = $user;
         Gdn::controller()->EventArguments['IsTopcoderAdmin'] =$isTopcoderAdmin;
@@ -3041,6 +3063,16 @@ if (!function_exists('topcoderMentionAnchor')) {
         $isTopcoderAdmin = val('IsAdmin', $topcoderProfile);
         if($isTopcoderAdmin) {
             $attributes['class'] = $attributes['class'].' '. 'topcoderAdmin' ;
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->getByUsername($handle, false);
+        if ($user) {
+            $userID = val('UserID', $user);
+            $hasRole = TopcoderPlugin::hasColorizedRole($userID);
+            if($hasRole) {
+                $attributes['class'] = $attributes['class'].' '. 'purple' ;
+            }
         }
         return '<a href="'.htmlspecialchars(url($userUrl)).'"'.attribute($attributes).'>@'.$handle.'</a>';
     }

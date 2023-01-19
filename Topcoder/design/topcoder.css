@@ -164,3 +164,16 @@ a:hover span.challengeRoles {
 .disabledLink {
     pointer-events:none
 }
+
+/* Customer Role */
+.purple, .purple:link,  .purple:visited, .purple:hover, .purple:active{
+    color: #652385
+}
+
+.DataList .MItem a.purple, .DataList .MItem a.purple:link, .DataList .MItem a.purple:hover, .DataList .MItem a.purple:visited,
+.MessageList .ItemDiscussion .Username.purple, .MessageList .ItemDiscussion .Username.purple:hover,
+.Content.MainContent .MessageList.DataList.Comments li.Item .Item-Header.CommentHeader .Username.purple,
+.Flyout.Flyout a.purple, .Flyout.Flyout a.purple:link,.Flyout.Flyout a.purple:visited, .Flyout.Flyout a.purple:hover, .Flyout.Flyout a.purple:active,
+.userContent p a.purple, .userContent p a.purple:link, .userContent p a.purple:visited, .userContent p a.purple:hover, .userContent p a.purple:active,
+.InformMessages .InformMessage .purple, .InformMessages .InformMessage .purple:link, .InformMessages .InformMessage .purple:hover, .InformMessages .InformMessage .purple:active, .InformMessages .InformMessage .purple:visited
+{ color: #652385 !important;  }
