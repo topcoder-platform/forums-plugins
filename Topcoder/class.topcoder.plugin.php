@@ -1444,7 +1444,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             return null;
         }
         $memberResponse = json_decode($memberData);
-        return memberResponse;
+        return $memberResponse;
     }
     /**
      * Generate machine to machine token from Auth0
