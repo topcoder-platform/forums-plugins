@@ -105,7 +105,7 @@ class TopcoderApiController extends AbstractApiController{
         ));
         $context = stream_context_create($options);
         $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').'/v5/members/autocomplete?term='.$handle;
-        $memberData = @file_get_contents($topcoderMembersApiUrl, false, context);
+        $memberData = @file_get_contents($topcoderMembersApiUrl, false, $context);
         if($memberData === false) {
             // Handle errors (e.g. 404 and others)
             return [];
