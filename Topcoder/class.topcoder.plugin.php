@@ -1946,9 +1946,9 @@ class TopcoderPlugin extends Gdn_Plugin {
             return false;
         }
         $memberStatsResponse = json_decode($memberStatsData);
-        if($memberStatsResponse->result->status === 200 && $memberStatsResponse->result->content[0]) {
-            return $memberStatsResponse->result->content[0]->maxRating != null ?
-                $memberStatsResponse->result->content[0]->maxRating->rating : null;
+        if($memberStatsResponse) {
+            return $memberStatsResponse->maxRating != null ?
+                $memberStatsResponse->maxRating->rating : null;
         }
 
         return false;
