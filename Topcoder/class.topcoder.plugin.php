@@ -1184,7 +1184,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $string = '';
 
         for ($i = 0; $i < $length; $i++) {
-            $string .= $characters[mt_rand(0, strlen($characters) - 1)];
+            $string .= $characters[random_int(0, strlen($characters) - 1)];
         }
 
         return $string;
