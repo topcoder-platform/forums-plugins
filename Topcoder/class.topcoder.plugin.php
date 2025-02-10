@@ -1184,7 +1184,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $string = '';
 
         for ($i = 0; $i < $length; $i++) {
-            $string .= $characters[random_int(0, strlen($characters) - 1)];
+            $string .= $characters[mt_rand(0, strlen($characters) - 1)];
         }
 
         return $string;
@@ -1444,7 +1444,11 @@ class TopcoderPlugin extends Gdn_Plugin {
             return null;
         }
         $memberResponse = json_decode($memberData);
-        return $memberResponse;
+        //Use a photo of Topcoder member if the member with the given user name exists and photoUrl is not null
+        if($memberResponse->result->status === 200 && $memberResponse->result->content !== null) {
+            return  $memberResponse->result->content;
+        }
+        return null;
     }
     /**
      * Generate machine to machine token from Auth0
@@ -1946,9 +1950,9 @@ class TopcoderPlugin extends Gdn_Plugin {
             return false;
         }
         $memberStatsResponse = json_decode($memberStatsData);
-        if($memberStatsResponse[0]) {
-            return $memberStatsResponse[0]->maxRating != null ?
-                $memberStatsResponse[0]->maxRating->rating : null;
+        if($memberStatsResponse->result->status === 200 && $memberStatsResponse->result->content[0]) {
+            return $memberStatsResponse->result->content[0]->maxRating != null ?
+                $memberStatsResponse->result->content[0]->maxRating->rating : null;
         }
 
         return false;

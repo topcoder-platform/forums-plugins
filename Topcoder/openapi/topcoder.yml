@@ -65,13 +65,6 @@ paths:
       tags:
         - Topcoder
 components:
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
   schemas:
     Records:
       type: object
-security:
-  - BearerAuth: []
