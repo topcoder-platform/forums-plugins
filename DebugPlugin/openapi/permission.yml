@@ -1,0 +1,52 @@
+openapi: 3.0.2
+info: Vanilla Permission API
+paths:
+  /permission/{userID}/{categoryID}:
+    get:
+      parameters:
+        - description: UserID to check.
+          in: path
+          name: userID
+          schema:
+            type: integer
+        - description: CategoryID to check.
+          in: path
+          name: categoryID
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            'application/json':
+              schema:
+                items:
+                  $ref: '#/components/schemas/Records'
+                type: array
+          description: Success
+      tags:
+        - Data
+      summary: List records.
+  /permission/{userID}:
+    get:
+      parameters:
+        - description: UserID to check.
+          in: path
+          name: userID
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            'application/json':
+              schema:
+                items:
+                  $ref: '#/components/schemas/Records'
+                type: array
+          description: Success
+      tags:
+        - Data
+      summary: List records.
+components:
+  schemas:
+    Records:
+      type: object
