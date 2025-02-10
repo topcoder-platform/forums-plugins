@@ -1445,8 +1445,8 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         $memberResponse = json_decode($memberData);
         //Use a photo of Topcoder member if the member with the given user name exists and photoUrl is not null
-        if($memberResponse->result->status === 200 && $memberResponse->result->content !== null) {
-            return  $memberResponse->result->content;
+        if($memberResponse->content !== null) {
+            return  $memberResponse->content;
         }
         return null;
     }
