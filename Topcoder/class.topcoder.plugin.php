@@ -1445,8 +1445,8 @@ class TopcoderPlugin extends Gdn_Plugin {
         }
         $memberResponse = json_decode($memberData);
         //Use a photo of Topcoder member if the member with the given user name exists and photoUrl is not null
-        if($memberResponse->content !== null) {
-            return  $memberResponse->content;
+        if($memberResponse !== null) {
+            return  $memberResponse;
         }
         return null;
     }
@@ -1950,9 +1950,9 @@ class TopcoderPlugin extends Gdn_Plugin {
             return false;
         }
         $memberStatsResponse = json_decode($memberStatsData);
-        if($memberStatsResponse->content[0]) {
-            return $memberStatsResponse->content[0]->maxRating != null ?
-                $memberStatsResponse->content[0]->maxRating->rating : null;
+        if($memberStatsResponse[0]) {
+            return $memberStatsResponse[0]->maxRating != null ?
+                $memberStatsResponse[0]->maxRating->rating : null;
         }
 
         return false;
