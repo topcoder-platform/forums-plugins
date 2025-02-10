@@ -1,0 +1,32 @@
+openapi: 3.0.2
+info: Vanilla SQL API
+paths:
+  /sql:
+    get:
+      parameters:
+        - description: SQL query.
+          in: query
+          name: sql
+          schema:
+            type: string
+        - description: SQL type query.
+          in: query
+          name: type
+          schema:
+             type: string
+      responses:
+        '200':
+          content:
+            'application/json':
+              schema:
+                items:
+                  $ref: '#/components/schemas/Records'
+                type: array
+          description: Success
+      tags:
+        - Data
+      summary: List records.
+components:
+  schemas:
+    Records:
+      type: object
