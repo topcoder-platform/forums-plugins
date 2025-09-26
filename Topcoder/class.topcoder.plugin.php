@@ -1702,7 +1702,7 @@ class TopcoderPlugin extends Gdn_Plugin {
     private static function loadChallenge($challengeId) {
         $token = TopcoderPlugin::getM2MToken();
         if ($token) {
-            $challengeURI = c('Plugins.Topcoder.ChallengeApiURI', '/v5/challenges/');
+            $challengeURI = c('Plugins.Topcoder.ChallengeApiURI', '/v6/challenges/');
             $topcoderChallengeApiUrl = c('Plugins.Topcoder.BaseApiURL') . $challengeURI;
             $options = array('http' => array(
                 'method' => 'GET',
