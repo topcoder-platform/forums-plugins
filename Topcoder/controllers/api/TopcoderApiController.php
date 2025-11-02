@@ -88,6 +88,7 @@ class TopcoderApiController extends AbstractApiController{
      */
     public function index(array $query) {
         $this->permission();
+        $token = TopcoderPlugin::getM2MToken();
         $in = $this->schema([
             'handle:s?' => [
                 'description' => 'Filter by Topcoder handle.',
@@ -98,8 +99,13 @@ class TopcoderApiController extends AbstractApiController{
         ])->setDescription('List of Topcoder users.');
         $query = $in->validate($query);
         $handle = $query['handle'];
-        $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').'/v5/members/autocomplete?term='.$handle;
-        $memberData = @file_get_contents($topcoderMembersApiUrl);
+        $options = array('http' => array(
+            'method' => 'GET',
+            'header' => 'Authorization: Bearer ' .$token
+        ));
+        $context = stream_context_create($options);
+        $topcoderMembersApiUrl = c('Plugins.Topcoder.BaseApiURL').'/v6/members/autocomplete?term='.$handle;
+        $memberData = @file_get_contents($topcoderMembersApiUrl, false, $context);
         if($memberData === false) {
             // Handle errors (e.g. 404 and others)
             return [];
