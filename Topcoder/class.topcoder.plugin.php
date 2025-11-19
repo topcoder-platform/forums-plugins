@@ -250,7 +250,7 @@ class TopcoderPlugin extends Gdn_Plugin {
         $provider = $this->provider();
         $signInURL = val('SignInUrl', $provider);
         $signOutURL = val('SignOutUrl', $provider);
-        $cookieName = c('Plugins.Topcoder.SSO.CookieName', null);
+        $cookieName = 'tcjwt';
         $claim = c('Plugins.Topcoder.SSO.UsernameClaim', null);
         $isConfigured = isset($signInURL) &&  isset($signOutURL) &&
             isset($cookieName) &&
@@ -304,7 +304,7 @@ class TopcoderPlugin extends Gdn_Plugin {
             return;
         }
 
-        $cookieName = c('Plugins.Topcoder.SSO.CookieName');
+        $cookieName = 'tcjwt';
         self::log('Cookie Name', ['value' => $cookieName]);
 
         $cookiesToken = isset($_COOKIE[$cookieName]) ? $_COOKIE[$cookieName] : null;
